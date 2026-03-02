@@ -2,14 +2,16 @@
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'saveRecord') {
-        chrome.storage.local.get(['auth_token'], (result) => {
+        chrome.storage.local.get(['auth_token', 'api_url'], (result) => {
             const token = result.auth_token;
+            const apiUrl = (result.api_url || 'https://emlak.altaydev.com.tr').replace(/\/$/, '');
+
             if (!token) {
                 sendResponse({ success: false, error: 'Oturum açılmadı. Lütfen eklenti simgesine tıklayıp giriş yapın.' });
                 return;
             }
 
-            fetch('https://emlak.altaydev.com.tr/api/save', {
+            fetch(`${apiUrl}/api/save`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

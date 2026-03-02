@@ -81,6 +81,22 @@
         .logged-in button:hover {
             background: #b91c1c;
         }
+
+        #api-url-container {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .settings-toggle {
+            font-size: 11px;
+            color: #6b7280;
+            text-decoration: underline;
+            cursor: pointer;
+            text-align: right;
+            margin-top: 5px;
+            display: block;
+        }
     </style>
 </head>
 
@@ -97,6 +113,14 @@
         </div>
         <button id="login-btn">Giriş Yap</button>
         <div id="message"></div>
+
+        <div id="api-url-container" style="display: none;">
+            <label>API Sunucu Adresi</label>
+            <input type="text" id="api-url" placeholder="https://emlak.altaydev.com.tr" />
+            <div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Vercel adresinizi veya kendi domaininizi
+                buraya yazın.</div>
+        </div>
+        <span class="settings-toggle" id="toggle-settings">Sunucu Ayarları</span>
     </div>
 
     <div id="logged-in-container" class="logged-in">

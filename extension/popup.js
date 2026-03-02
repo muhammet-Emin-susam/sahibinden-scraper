@@ -6,11 +6,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const messageEl = document.getElementById('message');
     const currentUserEl = document.getElementById('current-user');
 
-    const { auth_token, auth_user } = await chrome.storage.local.get(['auth_token', 'auth_user']);
+    const { auth_token, auth_user, api_url } = await chrome.storage.local.get(['auth_token', 'auth_user', 'api_url']);
+
+    const defaultApiUrl = 'https://emlak.altaydev.com.tr';
+    const currentApiUrl = api_url || defaultApiUrl;
+    document.getElementById('api-url').value = currentApiUrl;
 
     if (auth_token && auth_user) {
         showLoggedIn(auth_user.username);
     }
+
+    const toggleSettings = document.getElementById('toggle-settings');
+    const apiUrlContainer = document.getElementById('api-url-container');
+
+    toggleSettings.addEventListener('click', () => {
+        const isHidden = apiUrlContainer.style.display === 'none';
+        apiUrlContainer.style.display = isHidden ? 'block' : 'none';
+        toggleSettings.textContent = isHidden ? 'Ayarları Kapat' : 'Sunucu Ayarları';
+    });
 
     loginBtn.addEventListener('click', async () => {
         const username = document.getElementById('username').value;
@@ -25,7 +38,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         loginBtn.disabled = true;
 
         try {
-            const res = await fetch('https://emlak.altaydev.com.tr/api/login', {
+            const inputApiUrl = document.getElementById('api-url').value.replace(/\/$/, '');
+            await chrome.storage.local.set({ api_url: inputApiUrl });
+
+            const res = await fetch(`${inputApiUrl}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
