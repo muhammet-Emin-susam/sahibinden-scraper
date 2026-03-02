@@ -24,7 +24,7 @@ function PendingListings() {
     const fetchRecords = async () => {
         if (!token) return;
         try {
-            const response = await fetch('https://emlak.altaydev.com.tr/api/records', {
+            const response = await fetch('/api/records', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -57,7 +57,7 @@ function PendingListings() {
         e.stopPropagation();
 
         try {
-            await fetch(`https://emlak.altaydev.com.tr/api/records/${id}`, {
+            await fetch(`/api/records/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -76,7 +76,7 @@ function PendingListings() {
         const status_tag = approvalStatuses[id] || '';
 
         try {
-            const response = await fetch(`https://emlak.altaydev.com.tr/api/records/${id}/approve`, {
+            const response = await fetch(`/api/records/${id}/approve`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ function PendingListings() {
 
     const fetchDemands = async () => {
         try {
-            const res = await fetch(`https://emlak.altaydev.com.tr/api/demands`, {
+            const res = await fetch(`/api/demands`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -129,7 +129,7 @@ function PendingListings() {
                 }
             };
 
-            const res = await fetch(`https://emlak.altaydev.com.tr/api/demands/${demandId}/match`, {
+            const res = await fetch(`/api/demands/${demandId}/match`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

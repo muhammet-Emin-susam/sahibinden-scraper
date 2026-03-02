@@ -11,7 +11,7 @@ function ActivityFeed() {
         const fetchActivity = async () => {
             if (!token) return;
             try {
-                const response = await fetch('https://emlak.altaydev.com.tr/api/activity', {
+                const response = await fetch('/api/activity', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await response.json();

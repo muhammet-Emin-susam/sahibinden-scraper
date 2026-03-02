@@ -26,7 +26,7 @@ function SavedListings() {
     const fetchRecords = async () => {
         if (!token) return;
         try {
-            const response = await fetch('https://emlak.altaydev.com.tr/api/records', {
+            const response = await fetch('/api/records', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -55,7 +55,7 @@ function SavedListings() {
         e.stopPropagation();
 
         try {
-            await fetch(`https://emlak.altaydev.com.tr/api/records/${id}`, {
+            await fetch(`/api/records/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -75,7 +75,7 @@ function SavedListings() {
         try {
             const bodyData = isNote ? { note: value } : { status_tag: value };
 
-            const response = await fetch(`https://emlak.altaydev.com.tr/api/records/${id}/update`, {
+            const response = await fetch(`/api/records/${id}/update`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -111,7 +111,7 @@ function SavedListings() {
         // Fetch activity when opening
         if (newId && !activityLogs[newId]) {
             try {
-                const res = await fetch(`https://emlak.altaydev.com.tr/api/records/${newId}/activity`, {
+                const res = await fetch(`/api/records/${newId}/activity`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();

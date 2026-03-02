@@ -78,7 +78,7 @@ function Home() {
         const fetchData = async () => {
             if (!token) return;
             try {
-                const response = await fetch('https://emlak.altaydev.com.tr/api/records', {
+                const response = await fetch('/api/records', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await response.json();

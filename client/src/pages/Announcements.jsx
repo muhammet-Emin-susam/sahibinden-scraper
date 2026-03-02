@@ -41,7 +41,7 @@ function Announcements() {
 
     const fetchAnnouncements = async () => {
         try {
-            const response = await fetch('https://emlak.altaydev.com.tr/api/announcements', {
+            const response = await fetch('/api/announcements', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -66,7 +66,7 @@ function Announcements() {
         formData.append('image', file);
 
         try {
-            const response = await fetch('https://emlak.altaydev.com.tr/api/upload', {
+            const response = await fetch('/api/upload', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -92,7 +92,7 @@ function Announcements() {
     useEffect(() => {
         if (token) {
             fetchAnnouncements();
-            fetch('https://emlak.altaydev.com.tr/api/records', {
+            fetch('/api/records', {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(r => r.json()).then(d => {
                 if (d.success) setAllListings(d.data || []);
@@ -104,7 +104,7 @@ function Announcements() {
         e.preventDefault();
         setMsg({ type: '', text: '' });
         try {
-            const response = await fetch('https://emlak.altaydev.com.tr/api/announcements', {
+            const response = await fetch('/api/announcements', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ function Announcements() {
     const handleDeleteAnnouncement = async (id) => {
         if (!window.confirm('Bu duyuruyu silmek istediğinize emin misiniz?')) return;
         try {
-            const response = await fetch(`https://emlak.altaydev.com.tr/api/announcements/${id}`, {
+            const response = await fetch(`/api/announcements/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

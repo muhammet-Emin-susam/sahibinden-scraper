@@ -166,7 +166,7 @@ const Layout = ({ children }) => {
 
         const checkAnnouncements = async () => {
             try {
-                const response = await fetch('https://emlak.altaydev.com.tr/api/announcements', {
+                const response = await fetch('/api/announcements', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();

@@ -22,7 +22,7 @@ function TrashListings() {
     const fetchRecords = async () => {
         if (!token) return;
         try {
-            const response = await fetch('https://emlak.altaydev.com.tr/api/records', {
+            const response = await fetch('/api/records', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -53,7 +53,7 @@ function TrashListings() {
         if (!window.confirm("Bu ilanı HİÇBİR ZAMAN geri döndürülemeyecek şekilde KALICI olarak silmek istediğinize emin misiniz?")) return;
 
         try {
-            await fetch(`https://emlak.altaydev.com.tr/api/records/${id}/hard`, {
+            await fetch(`/api/records/${id}/hard`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -69,7 +69,7 @@ function TrashListings() {
         if (!window.confirm("Çöp kutusundaki TÜM ilanları KALICI olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
 
         try {
-            await fetch(`https://emlak.altaydev.com.tr/api/records/trash/empty`, {
+            await fetch(`/api/records/trash/empty`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -85,7 +85,7 @@ function TrashListings() {
         e.stopPropagation();
 
         try {
-            await fetch(`https://emlak.altaydev.com.tr/api/records/${id}/restore`, {
+            await fetch(`/api/records/${id}/restore`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -105,7 +105,7 @@ function TrashListings() {
         try {
             const bodyData = isNote ? { note: value } : { status_tag: value };
 
-            const response = await fetch(`https://emlak.altaydev.com.tr/api/records/${id}/update`, {
+            const response = await fetch(`/api/records/${id}/update`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -141,7 +141,7 @@ function TrashListings() {
         // Fetch activity when opening
         if (newId && !activityLogs[newId]) {
             try {
-                const res = await fetch(`https://emlak.altaydev.com.tr/api/records/${newId}/activity`, {
+                const res = await fetch(`/api/records/${newId}/activity`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();

@@ -64,8 +64,8 @@ function Appointments() {
         setLoading(true);
         try {
             const [appRes, listRes] = await Promise.all([
-                fetch('https://emlak.altaydev.com.tr/api/appointments', { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch('https://emlak.altaydev.com.tr/api/records', { headers: { 'Authorization': `Bearer ${token}` } })
+                fetch('/api/appointments', { headers: { 'Authorization': `Bearer ${token}` } }),
+                fetch('/api/records', { headers: { 'Authorization': `Bearer ${token}` } })
             ]);
 
             const appResult = await appRes.json();
@@ -126,8 +126,8 @@ function Appointments() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const url = editingId
-            ? `https://emlak.altaydev.com.tr/api/appointments/${editingId}`
-            : 'https://emlak.altaydev.com.tr/api/appointments';
+            ? `/api/appointments/${editingId}`
+            : '/api/appointments';
 
         const method = editingId ? 'PUT' : 'POST';
 
@@ -157,7 +157,7 @@ function Appointments() {
         if (!window.confirm("Bu randevu/iletişim kaydını silmek istediğinize emin misiniz?")) return;
 
         try {
-            const response = await fetch(`https://emlak.altaydev.com.tr/api/appointments/${id}`, {
+            const response = await fetch(`/api/appointments/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -174,7 +174,7 @@ function Appointments() {
     const handleEventDrop = async ({ event, start, end }) => {
         const appointmentId = event.id;
         try {
-            const response = await fetch(`https://emlak.altaydev.com.tr/api/appointments/${appointmentId}`, {
+            const response = await fetch(`/api/appointments/${appointmentId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

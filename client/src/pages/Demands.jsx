@@ -22,7 +22,7 @@ function Demands() {
     const fetchDemands = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`https://emlak.altaydev.com.tr/api/demands`, {
+            const res = await fetch(`/api/demands`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -41,7 +41,7 @@ function Demands() {
         if (!window.confirm('Bu talebi silmek istediğinize emin misiniz?')) return;
 
         try {
-            const res = await fetch(`https://emlak.altaydev.com.tr/api/demands/${id}`, {
+            const res = await fetch(`/api/demands/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -57,7 +57,7 @@ function Demands() {
 
     const handleUpdateStatus = async (id, newStatus) => {
         try {
-            const res = await fetch(`https://emlak.altaydev.com.tr/api/demands/${id}`, {
+            const res = await fetch(`/api/demands/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ function Demands() {
         e.preventDefault();
         setSaving(true);
         try {
-            const res = await fetch(`https://emlak.altaydev.com.tr/api/demands`, {
+            const res = await fetch(`/api/demands`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

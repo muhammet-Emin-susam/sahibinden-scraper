@@ -30,7 +30,7 @@ function Admin() {
 
     const fetchUsers = async () => {
         try {
-            const response = await fetch('https://emlak.altaydev.com.tr/api/admin/users', {
+            const response = await fetch('/api/admin/users', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -48,8 +48,8 @@ function Admin() {
         try {
             const isEdit = !!editingUser;
             const url = isEdit
-                ? `https://emlak.altaydev.com.tr/api/admin/users/${editingUser.id}`
-                : 'https://emlak.altaydev.com.tr/api/admin/users';
+                ? `/api/admin/users/${editingUser.id}`
+                : '/api/admin/users';
             const method = isEdit ? 'PUT' : 'POST';
 
             const response = await fetch(url, {
@@ -93,7 +93,7 @@ function Admin() {
     const handleDeleteUser = async () => {
         if (!deleteTarget) return;
         try {
-            const response = await fetch(`https://emlak.altaydev.com.tr/api/admin/users/${deleteTarget.id}`, {
+            const response = await fetch(`/api/admin/users/${deleteTarget.id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -115,7 +115,7 @@ function Admin() {
     const handleReCategorize = async () => {
         setMsg({ type: 'info', text: 'Kategorilendirme başlatıldı...' });
         try {
-            const response = await fetch('https://emlak.altaydev.com.tr/api/admin/re-categorize', {
+            const response = await fetch('/api/admin/re-categorize', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -159,7 +159,7 @@ function Admin() {
         e.preventDefault();
         setMsg({ type: '', text: '' });
         try {
-            const response = await fetch('https://emlak.altaydev.com.tr/api/admin/credentials', {
+            const response = await fetch('/api/admin/credentials', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

@@ -45,7 +45,7 @@ function Regions() {
 
     const fetchAssignments = async () => {
         try {
-            const res = await fetch('https://emlak.altaydev.com.tr/api/regions/assignments', {
+            const res = await fetch('/api/regions/assignments', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -56,7 +56,7 @@ function Regions() {
     const fetchUsers = async () => {
         try {
             const endpoint = user?.role === 'admin' ? '/api/admin/users' : '/api/users';
-            const res = await fetch(`https://emlak.altaydev.com.tr${endpoint}`, {
+            const res = await fetch(`${endpoint}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -148,7 +148,7 @@ function Regions() {
     const handleAssignSubmit = async (userId) => {
         if (!modalData) return;
         try {
-            const res = await fetch('https://emlak.altaydev.com.tr/api/regions/assign', {
+            const res = await fetch('/api/regions/assign', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
