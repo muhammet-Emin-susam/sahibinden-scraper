@@ -1,0 +1,34 @@
+{
+    "manifest_version": 3,
+    "name": "Sahibinden Scraper Helper",
+    "version": "1.1",
+    "description": "Scrapes Sahibinden listings and saves to local dashboard.",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage"
+    ],
+    "host_permissions": [
+        "*://localhost/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "Sahibinden Scraper Giriş"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://www.sahibinden.com/ilan/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "css": [
+                "styles.css"
+            ]
+        }
+    ]
+}

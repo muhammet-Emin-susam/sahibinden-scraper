@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Sahibinden Scraper Giriş</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            width: 300px;
+            padding: 15px;
+            margin: 0;
+            background: #f9fafb;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #1e3a8a;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #374151;
+        }
+
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        #message {
+            margin-top: 10px;
+            font-size: 13px;
+            text-align: center;
+            color: #dc2626;
+        }
+
+        .logged-in {
+            display: none;
+            text-align: center;
+        }
+
+        .logged-in p {
+            font-size: 14px;
+            color: #10b981;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .logged-in button {
+            background: #ef4444;
+            margin-top: 10px;
+        }
+
+        .logged-in button:hover {
+            background: #b91c1c;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="login-container">
+        <h2>Sisteme Giriş</h2>
+        <div class="form-group">
+            <label>Kullanıcı Adı</label>
+            <input type="text" id="username" placeholder="Admin veya Kullanıcı adı" />
+        </div>
+        <div class="form-group">
+            <label>Şifre</label>
+            <input type="password" id="password" placeholder="Şifreniz" />
+        </div>
+        <button id="login-btn">Giriş Yap</button>
+        <div id="message"></div>
+    </div>
+
+    <div id="logged-in-container" class="logged-in">
+        <p>Giriş yapıldı ✓</p>
+        <div style="font-size: 13px; color: #4b5563; margin-bottom: 5px;">Hesap: <strong id="current-user"></strong>
+        </div>
+        <div style="font-size: 12px; color: #6b7280; margin-bottom: 10px;">Artık ilan kaydedebilirsiniz.</div>
+        <button id="logout-btn">Çıkış Yap</button>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
