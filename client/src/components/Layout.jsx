@@ -2,7 +2,7 @@ import { useContext, useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 
-const EfdalAILink = ({ location }) => {
+const EfdalAILink = ({ location, isExpanded }) => {
     const linkRef = useRef(null);
 
     const handleMouseMove = (e) => {
@@ -18,6 +18,7 @@ const EfdalAILink = ({ location }) => {
         <Link
             ref={linkRef}
             to="/efdal-ai"
+            title={!isExpanded ? "EfdalAI Akıllı Asistan" : undefined}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => {
                 if (linkRef.current) {
@@ -25,38 +26,41 @@ const EfdalAILink = ({ location }) => {
                     linkRef.current.style.setProperty('--mouse-y', `-100px`);
                 }
             }}
-            className={`group relative flex items-center gap-3 px-4 py-3 min-h-[64px] rounded-2xl overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${location.pathname === '/efdal-ai' ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
+            className={`group relative flex items-center transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${location.pathname === '/efdal-ai' ? 'ring-2 ring-indigo-500 ring-offset-2' : ''} ${isExpanded ? 'gap-3 py-3 px-4 min-h-[64px] rounded-2xl' : 'flex-col justify-center px-0 py-0 w-11 h-24 rounded-full mx-auto shadow-sm'}`}
             style={{ transform: 'translateZ(0)' }}
         >
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 opacity-90 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className={`absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 opacity-90 group-hover:opacity-100 transition-opacity duration-300 ${isExpanded ? 'rounded-2xl' : 'rounded-full'}`}></div>
 
             {/* Glowing circle following mouse */}
             <div
-                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none mix-blend-screen"
+                className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none mix-blend-screen ${isExpanded ? 'rounded-2xl' : 'rounded-full'}`}
                 style={{
                     background: 'radial-gradient(circle 80px at var(--mouse-x, -100px) var(--mouse-y, -100px), rgba(255,255,255,0.4), transparent 80%)'
                 }}
             />
 
             {/* subtle dotted pattern overlay */}
-            <div className="absolute inset-0 rounded-2xl opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '12px 12px' }}></div>
+            <div className={`absolute inset-0 opacity-10 ${isExpanded ? 'rounded-2xl' : 'rounded-full'}`} style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '12px 12px' }}></div>
 
             {/* Icon Container */}
-            <div className="relative z-10 w-11 h-11 rounded-xl bg-white/20 shadow-inner backdrop-blur-md flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+            <div className={`relative z-10 flex items-center justify-center flex-shrink-0 transition-transform duration-300 ${isExpanded ? 'w-11 h-11 rounded-xl bg-white/20 shadow-inner backdrop-blur-md group-hover:scale-110' : 'w-full h-full group-hover:-translate-y-1'}`}>
                 <svg className="w-6 h-6 text-white drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
             </div>
 
             {/* Text Content */}
-            <div className="relative z-10 flex flex-col justify-center min-w-0">
-                <h3 className="font-black text-white text-[16px] tracking-tight leading-none drop-shadow-sm mb-1 text-shadow-sm">EfdalAI</h3>
-                <p className="text-[10px] font-bold text-white uppercase tracking-[0.15em] leading-none truncate opacity-90 transition-opacity">Akıllı Asistan</p>
-            </div>
+            {isExpanded && (
+                <div className="relative z-10 flex flex-col justify-center min-w-0">
+                    <h3 className="font-black text-white text-[16px] tracking-tight leading-none drop-shadow-sm mb-1 text-shadow-sm">EfdalAI</h3>
+                    <p className="text-[10px] font-bold text-white uppercase tracking-[0.15em] leading-none truncate opacity-90 transition-opacity">Akıllı Asistan</p>
+                </div>
+            )}
         </Link>
     );
 };
 
 const Layout = ({ children }) => {
     const { user, token, logout } = useContext(AuthContext);
+    const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
     const [notification, setNotification] = useState(null);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showSettings, setShowSettings] = useState(false);
@@ -123,19 +127,25 @@ const Layout = ({ children }) => {
     const renderMenuItem = (to, iconPath, label, badgeCount = 0) => {
         const active = location.pathname === to;
         return (
-            <Link key={to} to={to} className={`group relative flex items-center px-4 py-2.5 rounded-xl overflow-hidden transition-all ${active ? 'bg-blue-50 text-blue-600 font-bold shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 font-medium'}`}>
-                <svg className={`absolute left-4 w-5 h-5 transition-all duration-300 flex-shrink-0 ${active ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-5 group-hover:opacity-100 group-hover:translate-x-0'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Link key={to} to={to} className={`group relative flex items-center transition-all ${isSidebarExpanded ? 'py-2.5 px-4 gap-3 rounded-xl' : 'w-11 h-11 mx-auto justify-center rounded-[14px]'} ${active ? 'bg-blue-50 text-blue-600 font-bold shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 font-medium'}`} title={!isSidebarExpanded ? label : undefined}>
+                <svg className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${!isSidebarExpanded && 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={iconPath}></path>
                 </svg>
-                <span className={`transition-transform duration-300 ${active ? 'translate-x-8' : 'group-hover:translate-x-8'}`}>
-                    {label}
-                </span>
-                {badgeCount > 0 && (
-                    <span className="bg-indigo-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight shadow-md border border-indigo-400 absolute right-4 transition-transform duration-300">
-                        {badgeCount > 9 ? '9+' : badgeCount}
-                    </span>
+                {isSidebarExpanded && (
+                    <>
+                        <span className="whitespace-nowrap flex-1 truncate transition-all duration-300">
+                            {label}
+                        </span>
+                        {badgeCount > 0 && (
+                            <span className="bg-indigo-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight shadow-md border border-indigo-400 flex-shrink-0 ml-1 transition-transform duration-300">
+                                {badgeCount > 9 ? '9+' : badgeCount}
+                            </span>
+                        )}
+                    </>
                 )}
-
+                {!isSidebarExpanded && badgeCount > 0 && (
+                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full border-2 border-white shadow-sm"></span>
+                )}
             </Link>
         );
     };
@@ -213,18 +223,36 @@ const Layout = ({ children }) => {
     return (
         <div className="h-screen overflow-hidden flex bg-gray-50 p-4 gap-4 box-border">
             {/* Sidebar */}
-            <aside className="w-64 bg-white border border-gray-200 shadow-sm rounded-3xl flex flex-col hidden md:flex h-full overflow-hidden z-40 flex-shrink-0">
-                <div className="p-6 border-b border-gray-100 h-[72px] flex items-center flex-shrink-0">
-                    <h1 className="text-xl font-black tracking-tight text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md">
+            <aside className={`${isSidebarExpanded ? 'w-64' : 'w-20'} transition-all duration-300 bg-white border border-gray-200 shadow-sm rounded-3xl flex flex-col hidden md:flex h-full z-40 flex-shrink-0 relative group/sidebar`}>
+                <div className={`p-6 border-b ${isSidebarExpanded ? 'border-gray-100 h-[72px] flex items-center justify-between flex-shrink-0' : 'border-transparent flex flex-col items-center justify-center p-0 pt-6 pb-2 gap-5'}`}>
+                    <h1 className={`text-xl font-black tracking-tight text-gray-900 flex items-center gap-2 overflow-hidden ${isSidebarExpanded ? '' : 'hidden'}`}>
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md flex-shrink-0">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                         </div>
-                        İlan<span className="text-blue-600">Yönetimi</span>
+                        {isSidebarExpanded && <span className="whitespace-nowrap">İlan<span className="text-blue-600">Yönetimi</span></span>}
                     </h1>
+                    <button
+                        onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+                        className={`text-gray-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-gray-100 transition-colors ${isSidebarExpanded ? '' : ''}`}
+                        title={isSidebarExpanded ? "Menüyü Daralt" : "Menüyü Genişlet"}
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            {isSidebarExpanded ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7"></path>
+                            ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            )}
+                        </svg>
+                    </button>
+                    {!isSidebarExpanded && (
+                        <div className="w-11 h-11 bg-blue-600 rounded-[14px] flex items-center justify-center text-white shadow-md flex-shrink-0 cursor-pointer hover:scale-105 transition-transform border border-blue-500" title="İlan Yönetimi" onClick={() => setIsSidebarExpanded(true)}>
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        </div>
+                    )}
                 </div>
 
-                <div className="p-4 flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar">
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-3 mt-2">Menü</div>
+                <div className="p-4 flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar overflow-x-hidden">
+                    {isSidebarExpanded && <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-3 mt-2 whitespace-nowrap">Menü</div>}
 
                     {renderMenuItem('/home', 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', 'Anasayfa')}
 
@@ -233,6 +261,10 @@ const Layout = ({ children }) => {
                     )}
 
                     {renderMenuItem('/sayfalar/kaydedilenler', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01', 'Kaydedilenler')}
+
+                    {renderMenuItem('/sayfalar/arsiv', 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4', 'Arşiv')}
+
+                    {renderMenuItem('/sayfalar/koleksiyonlar', 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10', 'Koleksiyonlarım')}
 
                     {renderMenuItem('/sayfalar/silinenler', 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16', 'Silinen İlanlar')}
 
@@ -250,37 +282,42 @@ const Layout = ({ children }) => {
                     {renderMenuItem('/sayfalar/duyurular', 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', 'Duyurular', unreadCount)}
 
                     <style>{pulseStyle}</style>
-                    <div className="mt-4 mb-2 px-3">
-                        <EfdalAILink location={location} />
+                    <div className="mt-4 mb-2 flex justify-center">
+                        <EfdalAILink location={location} isExpanded={isSidebarExpanded} />
                     </div>
 
                     {user?.role === 'admin' && (
                         <>
-                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-2 px-3 border-t border-gray-100/50 pt-4">Yönetim</div>
+                            {isSidebarExpanded && <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-4 mb-2 px-3 border-t border-gray-100/50 pt-4 whitespace-nowrap">Yönetim</div>}
+                            {!isSidebarExpanded && <div className="mt-4 mb-2 border-t border-gray-100/50 pt-4"></div>}
                             {renderMenuItem('/admin', 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'Admin Paneli')}
                         </>
                     )}
                 </div>
 
-                <div className="p-4 border-t border-gray-100 bg-gray-50 mt-auto relative" ref={settingsRef}>
-                    <div className="flex items-center gap-3 px-2 py-2">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <div className={`p-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-2 relative rounded-b-3xl ${isSidebarExpanded ? '' : 'items-center'}`} ref={settingsRef}>
+                    <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-[14px] bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-lg flex-shrink-0 cursor-pointer transition-transform hover:scale-105 shadow-sm border border-blue-50" onClick={() => !isSidebarExpanded && setShowSettings(!showSettings)} title={!isSidebarExpanded ? 'Ayarlar' : undefined}>
                             {user?.username?.[0]?.toUpperCase() || 'U'}
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{user?.displayName || 'Kullanıcı'}</p>
-                            <p className="text-xs text-blue-600 font-medium truncate">{user?.role === 'admin' ? 'Yönetici' : 'Danışman'}</p>
-                        </div>
-                        <button
-                            onClick={() => setShowSettings(!showSettings)}
-                            className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${showSettings ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                        </button>
+                        {isSidebarExpanded && (
+                            <>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">{user?.displayName || 'Kullanıcı'}</p>
+                                    <p className="text-xs text-blue-600 font-medium truncate">{user?.role === 'admin' ? 'Yönetici' : 'Danışman'}</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowSettings(!showSettings)}
+                                    className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${showSettings ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                </button>
+                            </>
+                        )}
                     </div>
 
                     {showSettings && (
-                        <div className="absolute bottom-full left-4 right-4 mb-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-fade-in-up origin-bottom z-50 flex flex-col p-2 space-y-1">
+                        <div className={`absolute bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-fade-in-up z-50 flex flex-col p-2 space-y-1 ${isSidebarExpanded ? 'bottom-full left-4 right-4 mb-2 origin-bottom' : 'bottom-0 left-full ml-4 w-48 origin-bottom-left'}`}>
                             <Link to="/ayarlar" onClick={() => setShowSettings(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition-colors">
                                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                 Ayarlar

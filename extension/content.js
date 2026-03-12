@@ -5,15 +5,19 @@ async function scrapeData() {
     const getText = (selector) => document.querySelector(selector)?.innerText?.trim() || '';
 
     // Wait a bit longer for phone numbers to load via AJAX
-    const showPhoneBtn = document.querySelector('#aShowPhone, .show-phone-number, .js-show-phone, a[class*="phone"]');
-    if (showPhoneBtn) {
-        try {
-            showPhoneBtn.click();
-            await new Promise(r => setTimeout(r, 1200));
-        } catch (e) {
-            console.error('Telefona tıklanamadı', e);
+    // Sahibinden sometimes has multiple buttons or different selectors
+    const phoneButtons = document.querySelectorAll('#aShowPhone, .show-phone-number, .js-show-phone, a[class*="phone"], .classifiedUserContent .btn-show-phone');
+    for (const btn of phoneButtons) {
+        if (btn && btn.offsetParent !== null) { // if visible
+            try {
+                btn.click();
+                await new Promise(r => setTimeout(r, 800)); // Short wait for each
+            } catch (e) {
+                console.error('Telefona tıklanamadı', e);
+            }
         }
     }
+    await new Promise(r => setTimeout(r, 400)); // One final short wait
 
     const title = getText('.classifiedDetailTitle h1');
     let price = getText('.classifiedInfo h3').trim();
@@ -45,8 +49,110 @@ async function scrapeData() {
         '.storeBox a.storeInfo, .storeBox a.name, .storeBox .name, .storeBox span, ' +
         '.user-info-module_name__string, .user-info h2, .user-info h5, ' +
         '.classified-owner-name, [data-testid="seller-name"], ' +
-        '.store-info-area h2, .store-info-area h5, .classified-seller-store span'
+        '.store-info-area h2, .store-info-area h5, .classified-seller-store span, ' +
+        '.classifiedUserBox .username, .classifiedUserBox h5, .classifiedUserContent h5, ' +
+        '.detailed-info h3, .detailed-info h4, .detailed-info h5, ' +
+        '.user-info-store-name a, .user-info-agent h3'
     );
+
+    let officeName = '';
+    const officeNameSelectors = [
+        '.user-info-store-name a',
+        '.user-info-store-name span',
+        '.user-info-store-name h2',
+        '.user-info-store-name',
+        '.user-info-store-logo a',
+        '.user-info-store-logo',
+        '.storeBox .name',
+        '.storeBox a.storeInfo',
+        '.classifiedDetailRightSide .store-info-area h2',
+        '.classified-seller-store-name',
+        '.store-info-area h2'
+    ];
+    let officeLogo = '';
+    const officeLogoSelectors = [
+        '.user-info-store-logo img',
+        '.user-info-store-logo a img',
+        '.storeBox img',
+        '.classified-seller-store img',
+        '.store-info-area img'
+    ];
+    for (const sel of officeLogoSelectors) {
+        const img = document.querySelector(sel);
+        if (img) {
+            officeLogo = img.getAttribute('data-src') || img.src || '';
+            if (officeLogo) break;
+        }
+    }
+
+    // Aggressive Store Name Extraction
+    for (const selector of officeNameSelectors) {
+        const els = document.querySelectorAll(selector);
+        for (const el of els) {
+            let txt = (el.textContent || el.innerText || el.getAttribute('title') || '').trim();
+            if (txt && txt.length > 2) {
+                // Use regex with word boundaries for blacklist to avoid partial matches
+                const isBlacklisted = nameBlacklist.some(bw => {
+                    const regex = new RegExp(`\\b${bw}\\b`, 'i');
+                    return regex.test(txt);
+                });
+                if (!isBlacklisted) {
+                    officeName = txt;
+                    break;
+                }
+            }
+        }
+        if (officeName) break;
+    }
+
+    // Pro Layout Specific: Broad container scan
+    if (!officeName) {
+        const storeCard = document.querySelector('.user-info-store-card, .user-info-store-name, .store-info-area');
+        if (storeCard) {
+            // Get all text nodes, filter out the agent name if we already found it later (but we are before that)
+            // Just take the longest non-blacklisted line for now
+            const lines = storeCard.textContent.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+            for (const line of lines) {
+                const isBlacklisted = nameBlacklist.some(bw => new RegExp(`\\b${bw}\\b`, 'i').test(line));
+                if (!isBlacklisted) {
+                    officeName = line;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Final PRO layout fallback: If office name still empty, try store logo alt text or title
+    if (!officeName) {
+        const proLogo = document.querySelector('.user-info-store-logo img[alt], .user-info-store-logo a[title]');
+        if (proLogo) {
+            const txt = proLogo.alt?.trim() || proLogo.getAttribute('title')?.trim();
+            if (txt && !nameBlacklist.some(bw => txt.toLowerCase().includes(bw.toLowerCase())) && txt.length > 2) {
+                officeName = txt;
+            }
+        }
+    }
+
+    // Ultimate fallback: Look for store subdomains in links (e.g. stores.sahibinden.com)
+    if (!officeName) {
+        const allLinks = document.querySelectorAll('.classifiedDetailRightSide a, .user-info-module a, aside a, .storeBox a, .user-info-store-card a');
+        for (const link of allLinks) {
+            const href = link.href || '';
+            let title = (link.getAttribute('title') || link.textContent || link.innerText || '').trim();
+            // Match subdomains like: storename.sahibinden.com
+            const subdomainMatch = href.match(/https?:\/\/([^.]+)\.sahibinden\.com/);
+            if (subdomainMatch && subdomainMatch[1] !== 'www' && subdomainMatch[1] !== 'secure' && title.length > 2) {
+                const isBlacklisted = nameBlacklist.some(bw => new RegExp(`\\b${bw}\\b`, 'i').test(title));
+                if (!isBlacklisted && !title.toLowerCase().includes('tüm ilanlar')) {
+                    officeName = title;
+                    console.log('[DEBUG] Store name found via subdomain link:', officeName);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (officeName) console.log('[DEBUG] Office name finalized:', officeName);
 
     let foundNames = [];
     let phones = []; // Hoist phones array
@@ -70,8 +176,8 @@ async function scrapeData() {
             }
 
             // Test if it's a name
-            if (val.length > 2 && val.length < 40 && !val.includes('*')) {
-                const isBlacklisted = nameBlacklist.some(badWord => val.toLowerCase().includes(badWord.toLowerCase()));
+            if (val.length > 2 && val.length < 50 && !val.includes('*')) {
+                const isBlacklisted = nameBlacklist.some(bw => new RegExp(`\\b${bw}\\b`, 'i').test(val));
                 // avoid pure numbers or obvious partial phones
                 if (!isBlacklisted && !foundNames.includes(val) && !val.match(/^[\d\s\(\)\-\+]+$/)) {
                     foundNames.push(val);
@@ -80,20 +186,26 @@ async function scrapeData() {
         }
     });
 
+    console.log('[DEBUG] Scraped Office:', officeName);
+
     // 2. Check for data-content attributes (another Sahibinden defense specifically for phones)
-    document.querySelectorAll('[data-content]').forEach(el => {
-        const val = el.getAttribute('data-content')?.trim();
-        if (val && !val.includes('*')) {
-            const phoneMatch = val.match(/(0\s*\(?[52348]\d{2}\)?\s*\d{3}\s*[\-\.]?\s*\d{2}\s*[\-\.]?\s*\d{2})/g);
-            if (phoneMatch) {
-                phones.push(...phoneMatch.map(m => m.replace(/\s+/g, ' ').trim()));
-            } else if (val.length > 2 && val.length < 40) {
-                const isBlacklisted = nameBlacklist.some(badWord => val.toLowerCase().includes(badWord.toLowerCase()));
-                if (!isBlacklisted && !foundNames.includes(val) && !val.match(/^[\d\s\(\)\-\+]+$/)) {
-                    foundNames.push(val);
+    // Now restricted to right rail areas to avoid grabbing data from description
+    const dataContentContainers = document.querySelectorAll('.classifiedDetailRightSide, .classified-right-side, aside, .user-info-module, .classifiedUserBox');
+    dataContentContainers.forEach(container => {
+        container.querySelectorAll('[data-content]').forEach(el => {
+            const val = el.getAttribute('data-content')?.trim();
+            if (val && !val.includes('*')) {
+                const phoneMatch = val.match(/(0\s*\(?[52348]\d{2}\)?\s*\d{3}\s*[\-\.]?\s*\d{2}\s*[\-\.]?\s*\d{2})/g);
+                if (phoneMatch) {
+                    phones.push(...phoneMatch.map(m => m.replace(/\s+/g, ' ').trim()));
+                } else if (val.length > 2 && val.length < 40) {
+                    const isBlacklisted = nameBlacklist.some(badWord => val.toLowerCase().includes(badWord.toLowerCase()));
+                    if (!isBlacklisted && !foundNames.includes(val) && !val.match(/^[\d\s\(\)\-\+]+$/)) {
+                        foundNames.push(val);
+                    }
                 }
             }
-        }
+        });
     });
 
     for (const el of nameContainers) {
@@ -104,6 +216,15 @@ async function scrapeData() {
         const isBlacklisted = nameBlacklist.some(badWord => text.toLowerCase().includes(badWord.toLowerCase()));
         if (!isBlacklisted && !foundNames.includes(text)) {
             foundNames.push(text);
+        }
+    }
+
+    // Specific check for Agent Name in Pro Layout
+    const proAgentName = document.querySelector('.user-info-agent h3');
+    if (proAgentName && proAgentName.innerText?.trim()) {
+        const txt = proAgentName.innerText.trim();
+        if (!foundNames.includes(txt) && !nameBlacklist.some(bw => txt.toLowerCase().includes(bw.toLowerCase()))) {
+            foundNames.unshift(txt); // Prioritize agent name
         }
     }
 
@@ -130,9 +251,27 @@ async function scrapeData() {
     }).filter((item, pos, self) => self.indexOf(item) === pos && item.length > 2);
 
     if (foundNames.length > 0) {
-        // If we found multiple names (like Store Name + Agent Name), join them
-        // Just take max 2 unique names to avoid super long strings
-        sellerName = foundNames.slice(0, 2).join(' - ');
+        // Filter out junk
+        let validNames = foundNames.filter(n => {
+            const lower = n.toLowerCase();
+            return !nameBlacklist.some(bw => lower.includes(bw.toLowerCase())) &&
+                n.length > 2 &&
+                !n.match(/^[\d\s\(\)\-\+]+$/);
+        });
+
+        // Separate office names from agent names
+        let filteredNames = validNames;
+        if (officeName) {
+            filteredNames = validNames.filter(n => !n.includes(officeName) && !officeName.includes(n));
+        }
+
+        if (filteredNames.length > 0) {
+            sellerName = filteredNames[0]; // Take the first unique non-office name as the consultant
+            if (filteredNames.length > 1) sellerName += ' - ' + filteredNames[1];
+        } else if (validNames.length > 0) {
+            // Fallback: if everything was filtered as office, take the best valid name
+            sellerName = validNames[0];
+        }
     }
 
     // ==========================================
@@ -141,7 +280,7 @@ async function scrapeData() {
     let sellerPhone = '';
 
     // First, try traditional list scanning
-    const phoneList = document.querySelectorAll('ul.phones li span, .phone-area span, .phone-number, [data-phone]');
+    const phoneList = document.querySelectorAll('ul.phones li span, .phone-area span, .phone-number, [data-phone], .user-info-phones span, .user-info-phones b');
     phoneList.forEach(span => {
         const spanText = span.innerText?.trim() || span.getAttribute('data-phone')?.trim();
         if (spanText && spanText !== '--- -- --' && spanText.length > 8) {
@@ -149,45 +288,51 @@ async function scrapeData() {
         }
     });
 
-    // Strategy 2: Look for 'Cep' label and grab the sibling/parent text
+    // Strategy 2: Look for 'Cep' label and grab the sibling/parent text inside CONTACT areas only
     if (phones.length === 0) {
-        document.querySelectorAll('li, div, p, span, h4').forEach(el => {
-            const txt = el.innerText?.trim() || '';
-            // Only look around lines/elements that actually mention a phone type explicitly
-            if (txt.includes('Cep') || txt.includes('İş') || txt.includes('Sabit')) {
-                // First try to find Mobile (05XX)
-                let phoneMatch = txt.match(/(0\s*5\d{2}\s*\d{3}\s*\d{2}\s*\d{2})/g);
+        const contactContainers = document.querySelectorAll('.classifiedDetailRightSide, .classified-right-side, aside, .user-info-module, .classifiedUserBox, .seller-info-area');
+        contactContainers.forEach(container => {
+            container.querySelectorAll('li, div, p, span, h4, .user-info-phones div').forEach(el => {
+                const txt = el.innerText?.trim() || '';
+                // Only look around lines/elements that actually mention a phone type explicitly
+                if (txt.includes('Cep') || txt.includes('İş') || txt.includes('Sabit') || txt.includes('Tel')) {
+                    // First try to find Mobile (05XX)
+                    let phoneMatch = txt.match(/(0\s*\(?5\d{2}\)?\s*\d{3}\s*[\-\.\s]?\d{2}\s*[\-\.\s]?\d{2})/g);
 
-                // Fallback to landlines (02XX, 03XX, 04XX) but explicitly avoid 0850!
-                if (!phoneMatch) {
-                    phoneMatch = txt.match(/(0\s*[2|3|4]\d{2}\s*\d{3}\s*\d{2}\s*\d{2})/g);
+                    // Fallback to landlines (02XX, 03XX, 04XX)
+                    if (!phoneMatch) {
+                        phoneMatch = txt.match(/(0\s*\(?[2|3|4]\d{2}\)?\s*\d{3}\s*[\-\.\s]?\d{2}\s*[\-\.\s]?\d{2})/g);
+                    }
+
+                    if (phoneMatch) phones.push(...phoneMatch.map(m => m.replace(/\s+/g, ' ').trim()));
                 }
-
-                if (phoneMatch) phones.push(...phoneMatch.map(m => m.replace(/\s+/g, ' ').trim()));
-            }
+            });
         });
     }
 
-    // If traditional didn't work, scan the entire right rail text using Regex for Turkish phone numbers
+    // If traditional didn't work, scan the entire right rail text aggressively
     if (phones.length === 0) {
-        // Grab smaller chunks of the right rail to avoid customer service footers
-        const rightRail = document.querySelector('.classifiedDetailRightSide, .classified-right-side, aside');
+        const rightRail = document.querySelector('.classifiedDetailRightSide, .classified-right-side, aside, .user-info-module');
         if (rightRail) {
-            // Look specifically in the storeBox or user info boxes first
-            const boxes = rightRail.querySelectorAll('.storeBox, .user-info-module, .seller-info-area');
+            // Filter out description if it somehow ended up inside (unlikely but safe)
+            const descriptionEl = rightRail.querySelector('#classifiedDescription');
+
+            // Look specifically in the storeBox, user info boxes, or pro module
+            const boxes = rightRail.querySelectorAll('.storeBox, .user-info-module, .seller-info-area, .user-info-phones');
 
             let rootText = '';
             if (boxes.length > 0) {
                 boxes.forEach(b => rootText += ' ' + b.innerText);
             } else {
+                // If no boxes, take whole rail but try to be careful
                 rootText = rightRail.innerText || '';
             }
 
             // Priorities: 1. Mobile (05xx) 2. Normal landlines (02xx, 03xx, 04xx)
-            // Notice we DO NOT include 8 to avoid 0850!
-            let matches = rootText.match(/(0\s*5\d{2}\s*\d{3}\s*\d{2}\s*\d{2})/g);
+            // Handle optional parentheses and various separators
+            let matches = rootText.match(/(0\s*\(?5\d{2}\)?\s*\d{3}\s*[\-\.\s]?\d{2}\s*[\-\.\s]?\d{2})/g);
             if (!matches) {
-                matches = rootText.match(/(0\s*[2|3|4]\d{2}\s*\d{3}\s*\d{2}\s*\d{2})/g);
+                matches = rootText.match(/(0\s*\(?[2|3|4]\d{2}\)?\s*\d{3}\s*[\-\.\s]?\d{2}\s*[\-\.\s]?\d{2})/g);
             }
 
             if (matches && matches.length > 0) {
@@ -228,6 +373,25 @@ async function scrapeData() {
         }
     });
 
+    // ==========================================
+    // EXTRACT MAP COORDINATES
+    // ==========================================
+    let mapUrl = '';
+    const mapElement = document.querySelector('#gmap');
+    if (mapElement) {
+        const lat = mapElement.getAttribute('data-lat');
+        const lon = mapElement.getAttribute('data-lon');
+        if (lat && lon) {
+            mapUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+        }
+    }
+
+    // Final boolean for UI fallback
+    const isOffice = properties['Kimden'] === 'Emlak Ofisinden' ||
+        properties['Kimden'] === 'İnşaat Firmasından' ||
+        !!officeName ||
+        !!document.querySelector('.user-info-store-card, .storeBox, .store-info-area');
+
     return {
         url: window.location.href,
         ilanNo: properties['İlan No'] || '',
@@ -238,7 +402,11 @@ async function scrapeData() {
         description,
         images,
         sellerName,
-        sellerPhone
+        sellerPhone,
+        officeName,
+        officeLogo,
+        isOffice,
+        mapUrl
     };
 }
 

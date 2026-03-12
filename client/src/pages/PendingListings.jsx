@@ -357,30 +357,74 @@ function PendingListings() {
                                                     </div>
 
                                                     {/* Record details */}
-                                                    <div className="grid md:grid-cols-2 gap-8 max-w-full">
-                                                        <div>
-                                                            <h4 className="font-semibold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
-                                                                <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                                                Özellikler
-                                                            </h4>
-                                                            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                                                {record.properties && Object.entries(record.properties).map(([key, value]) => (
-                                                                    <div key={key} className="flex flex-col border-b border-gray-50 pb-2 last:border-0 last:pb-0">
-                                                                        <span className="text-gray-500 text-xs mb-1 uppercase tracking-wide">{key}</span>
-                                                                        <span className="font-medium text-gray-800 break-words">{value}</span>
+                                                    {record.images && record.images.length > 0 && (
+                                                        <div className="mb-8 relative group max-w-full">
+                                                            <div className="flex items-center justify-between mb-4 border-b border-gray-900 pb-3">
+                                                                <h4 className="font-bold text-gray-900 text-lg">Görseller ({record.images.length})</h4>
+                                                                <span className="text-xs text-gray-400 font-medium md:hidden">(Kaydırılabilir)</span>
+                                                            </div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const container = e.currentTarget.parentElement.querySelector('.overflow-x-auto');
+                                                                    if (container) container.scrollBy({ left: -300, behavior: 'smooth' });
+                                                                }}
+                                                                className="absolute left-0 top-1/2 z-20 bg-white shadow-lg border border-gray-100 text-gray-700 p-2 rounded-full hover:bg-gray-50 hover:scale-110 transition-all duration-200 -translate-y-1/2 -ml-3 md:ml-0"
+                                                                title="Sola Kaydır"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+                                                            </button>
+                                                            <div className="flex gap-4 overflow-x-auto pb-6 pt-2 px-1 snap-x scroll-smooth no-scrollbar" style={{ scrollBehavior: 'smooth' }}>
+                                                                {record.images.map((img, idx) => (
+                                                                    <div
+                                                                        key={idx}
+                                                                        className="flex-none w-64 h-48 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden cursor-zoom-in snap-center hover:shadow-md transition-shadow relative group/img"
+                                                                        onClick={() => setLightboxImage(img)}
+                                                                    >
+                                                                        <img src={img} className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500" loading="lazy" />
+                                                                        <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors pointer-events-none" />
                                                                     </div>
                                                                 ))}
                                                             </div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const container = e.currentTarget.parentElement.querySelector('.overflow-x-auto');
+                                                                    if (container) container.scrollBy({ left: 300, behavior: 'smooth' });
+                                                                }}
+                                                                className="absolute right-0 top-1/2 z-20 bg-white shadow-lg border border-gray-100 text-gray-700 p-2 rounded-full hover:bg-gray-50 hover:scale-110 transition-all duration-200 -translate-y-1/2 -mr-3 md:mr-0"
+                                                                title="Sağa Kaydır"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    <div className="grid md:grid-cols-2 gap-12 max-w-full">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 border-b border-gray-900 pb-3 mb-6">
+                                                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                                <h4 className="font-bold text-gray-900 text-lg">Özellikler</h4>
+                                                            </div>
+                                                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                                                                <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                                                                    {record.properties && typeof record.properties === 'object' && Object.entries(record.properties).map(([key, value]) => (
+                                                                        <div key={key} className="flex flex-col">
+                                                                            <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">{key}</span>
+                                                                            <span className="font-bold text-gray-800 text-sm break-words leading-snug">{value}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                         <div>
-                                                            <h4 className="font-semibold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
-                                                                <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
-                                                                Açıklama Özeti
-                                                            </h4>
-                                                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm h-full max-w-full overflow-hidden">
+                                                            <div className="flex items-center gap-2 border-b border-gray-900 pb-3 mb-6">
+                                                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                                                                <h4 className="font-bold text-gray-900 text-lg">Açıklama Özeti</h4>
+                                                            </div>
+                                                            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm h-[calc(100%-4rem)] max-w-full overflow-hidden">
                                                                 <div
-                                                                    className="text-sm text-gray-600 leading-relaxed max-h-[400px] overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar break-words"
-                                                                    dangerouslySetInnerHTML={{ __html: record.description }}
+                                                                    className="text-sm text-gray-600 font-medium leading-relaxed max-h-[400px] overflow-y-auto overflow-x-hidden pr-3 custom-scrollbar break-words"
+                                                                    dangerouslySetInnerHTML={{ __html: record.description || '' }}
                                                                 />
                                                             </div>
                                                         </div>

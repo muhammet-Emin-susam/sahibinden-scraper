@@ -1,26 +1,29 @@
 import React, { useState, useEffect, useContext } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { AuthContext } from '../contexts/AuthContext';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { tr } from 'date-fns/locale';
 
-function SavedListings() {
+const Archive = () => {
     const [savedRecords, setSavedRecords] = useState([]);
     const [expandedRecordId, setExpandedRecordId] = useState(null);
-    const [archivingId, setArchivingId] = useState(null);
+    const [unarchivingId, setUnarchivingId] = useState(null);
     const [lightboxImage, setLightboxImage] = useState(null);
     const [isZoomed, setIsZoomed] = useState(false);
     const [activityLogs, setActivityLogs] = useState({}); // { [recordId]: [...logs] }
 
-    // Archive Modal states
-    const [showArchiveModal, setShowArchiveModal] = useState(false);
-    const [recordToArchive, setRecordToArchive] = useState(null);
+    // Archive Folder states
     const [archiveFolders, setArchiveFolders] = useState([]);
-    const [selectedFolderId, setSelectedFolderId] = useState("");
-    const [newFolderName, setNewFolderName] = useState("");
+    const [selectedFolderId, setSelectedFolderId] = useState("all");
     const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+    const [newFolderName, setNewFolderName] = useState("");
+
+    // Move to Folder Modal states
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [recordToMove, setRecordToMove] = useState(null);
+    const [movingId, setMovingId] = useState(null);
 
     // Collection Modal states
     const [collections, setCollections] = useState([]);
@@ -30,12 +33,6 @@ function SavedListings() {
     const [isCreatingCollection, setIsCreatingCollection] = useState(false);
     const [newCollectionName, setNewCollectionName] = useState("");
     const [collectingId, setCollectingId] = useState(null);
-
-    // Demand Match states
-    const [showDemandModal, setShowDemandModal] = useState(false);
-    const [demands, setDemands] = useState([]);
-    const [selectedListingForDemand, setSelectedListingForDemand] = useState(null);
-    const [matchingDemand, setMatchingDemand] = useState(false);
 
     // Export Modal states
     const [showExportModal, setShowExportModal] = useState(false);
@@ -49,13 +46,11 @@ function SavedListings() {
 
     // Advanced Filtering states
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-    const [showPortfolioOnly, setShowPortfolioOnly] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [minPrice, setMinPrice] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
     const [startDate, setStartDate] = useState(null);
     const [endDate, setEndDate] = useState(null);
-    const [sortBy, setSortBy] = useState('newest_approved');
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -63,33 +58,6 @@ function SavedListings() {
 
     const { token, user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
-    const location = useLocation();
-
-    // Check for auto-expand request from navigation state
-    useEffect(() => {
-        if (location.state?.expandRecordId && savedRecords.length > 0) {
-            const targetId = location.state.expandRecordId;
-            setExpandedRecordId(targetId);
-
-            // Calculate which page this record is on (assuming default sort and no active filters)
-            const index = savedRecords.findIndex(r => r.id === targetId);
-            if (index !== -1) {
-                const targetPage = Math.floor(index / itemsPerPage) + 1;
-                setCurrentPage(targetPage);
-
-                // Scroll into view after render
-                setTimeout(() => {
-                    const row = document.getElementById(`record-${targetId}`);
-                    if (row) {
-                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                }, 150);
-            }
-
-            // Clear the state so it doesn't re-trigger
-            navigate(location.pathname, { replace: true, state: {} });
-        }
-    }, [location.state, savedRecords, navigate]);
 
     const fetchRecords = async () => {
         if (!token) return;
@@ -101,34 +69,14 @@ function SavedListings() {
             });
             const result = await response.json();
             if (result.success) {
-                // Sadece approved (onaylanmış) ve matched (eşleştirilmiş) kayıtları göster
-                const approvedRecords = result.data.filter(r => r.status === 'approved' || r.status === 'matched');
-                setSavedRecords(approvedRecords);
+                // Sadece archived (arşivlenmiş) kayıtları göster
+                setSavedRecords(result.data.filter(r => r.status === 'archived'));
             } else if (response.status === 401 || response.status === 403) {
                 logout();
                 navigate('/login');
             }
         } catch (err) {
             console.error('Failed to fetch records:', err);
-        }
-    };
-
-    const togglePortfolio = async (id, currentStatus) => {
-        try {
-            const res = await fetch(`/api/records/${id}/portfolio`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ isPortfolio: !currentStatus })
-            });
-            const data = await res.json();
-            if (data.success) {
-                setSavedRecords(prev => prev.map(r => r.id === id ? { ...r, isPortfolio: !currentStatus } : r));
-            }
-        } catch (err) {
-            console.error('Portfolio toggle hata:', err);
         }
     };
 
@@ -159,151 +107,6 @@ function SavedListings() {
             }
         } catch (err) {
             console.error('Failed to fetch collections:', err);
-        }
-    };
-
-    const fetchDemands = async () => {
-        try {
-            const res = await fetch(`/api/demands`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
-            if (data.success) {
-                setDemands(data.data.filter(d => d.status === 'Aktif'));
-            }
-        } catch (err) {
-            console.error('Failed to fetch demands:', err);
-        }
-    };
-
-    useEffect(() => {
-        fetchRecords();
-        fetchArchiveFolders();
-        fetchCollections();
-        const interval = setInterval(fetchRecords, 5000);
-        return () => clearInterval(interval);
-    }, [token]);
-
-    const handleDeleteRecord = async (e, id) => {
-        e.stopPropagation();
-
-        try {
-            await fetch(`/api/records/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            setSavedRecords(prev => prev.filter(record => record.id !== id));
-        } catch (err) {
-            console.error('Failed to delete:', err);
-        }
-    };
-
-    const handleUpdateRecord = async (e, id, type) => {
-        e.stopPropagation();
-        const isNote = type === 'note';
-        const value = isNote ? editNoteValue : editStatusValue;
-
-        try {
-            const bodyData = isNote ? { note: value } : { status_tag: value };
-
-            const response = await fetch(`/api/records/${id}/update`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(bodyData)
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                // Update local state
-                setSavedRecords(prev => prev.map(record =>
-                    record.id === id
-                        ? { ...record, [isNote ? 'note' : 'status_tag']: value }
-                        : record
-                ));
-
-                // Exit edit mode
-                if (isNote) {
-                    setEditingNoteId(null);
-                } else {
-                    setEditingStatusId(null);
-                }
-            }
-        } catch (err) {
-            console.error('Failed to update:', err);
-        }
-    };
-
-    const handleArchiveRecord = (e, record) => {
-        e.stopPropagation();
-        setRecordToArchive(record);
-        if (archiveFolders.length > 0) {
-            setSelectedFolderId(archiveFolders[0].id);
-        } else {
-            setSelectedFolderId("");
-        }
-        setNewFolderName("");
-        setIsCreatingFolder(false);
-        setShowArchiveModal(true);
-    };
-
-    const confirmArchive = async () => {
-        if (!recordToArchive) return;
-
-        setArchivingId(recordToArchive.id);
-
-        let targetFolderId = selectedFolderId;
-
-        // If creating a new folder
-        if (isCreatingFolder && newFolderName.trim()) {
-            try {
-                const folderRes = await fetch('/api/archive-folders', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ name: newFolderName.trim() })
-                });
-                const folderResult = await folderRes.json();
-                if (folderResult.success) {
-                    targetFolderId = folderResult.data.id;
-                    setArchiveFolders(prev => [...prev, folderResult.data]);
-                } else {
-                    console.error('Failed to create folder:', folderResult.error);
-                    setArchivingId(null);
-                    return; // Stop if folder creation fails
-                }
-            } catch (err) {
-                console.error('Failed to create folder:', err);
-                setArchivingId(null);
-                return;
-            }
-        }
-
-        try {
-            const response = await fetch(`/api/records/${recordToArchive.id}/archive`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ folderId: targetFolderId || null })
-            });
-            const result = await response.json();
-            if (result.success) {
-                setSavedRecords(prev => prev.filter(reqRecord => reqRecord.id !== recordToArchive.id));
-                setShowArchiveModal(false);
-                setRecordToArchive(null);
-            }
-        } catch (err) {
-            console.error('Failed to archive:', err);
-        } finally {
-            setArchivingId(null);
         }
     };
 
@@ -371,48 +174,167 @@ function SavedListings() {
         }
     };
 
-    const handleOpenDemandModal = (e, record) => {
-        e.stopPropagation();
-        setSelectedListingForDemand(record);
-        fetchDemands();
-        setShowDemandModal(true);
-    };
-
-    const handleMatchToDemand = async (demandId) => {
-        setMatchingDemand(true);
+    const handleCreateFolder = async () => {
+        if (!newFolderName.trim()) return;
         try {
-            const payload = {
-                listing: {
-                    id: selectedListingForDemand.id,
-                    title: selectedListingForDemand.title,
-                    price: selectedListingForDemand.price,
-                    city: selectedListingForDemand.city || '',
-                    district: selectedListingForDemand.district || '',
-                    neighborhood: selectedListingForDemand.neighborhood || ''
-                }
-            };
-
-            const res = await fetch(`/api/demands/${demandId}/match`, {
+            const res = await fetch('/api/archive-folders', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ name: newFolderName.trim() })
             });
-
-            const data = await res.json();
-            if (data.success) {
-                setShowDemandModal(false);
-                fetchRecords(); // Update status of matched record
-            } else {
-                alert(data.error);
+            const result = await res.json();
+            if (result.success) {
+                setArchiveFolders(prev => [...prev, result.data]);
+                setNewFolderName("");
+                setIsCreatingFolder(false);
+                setSelectedFolderId(result.data.id);
             }
         } catch (err) {
-            console.error('Failed to match demand:', err);
-            alert('Talebe ekleme başarısız oldu.');
+            console.error('Failed to create folder:', err);
+        }
+    };
+
+    const handleDeleteFolder = async (folderId, e) => {
+        e.stopPropagation();
+        if (!window.confirm('Bu klasörü silmek istediğinize emin misiniz? İçindeki klasörler "Genel" klasörüne taşınacaktır.')) return;
+
+        try {
+            const res = await fetch(`/api/archive-folders/${folderId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (result.success) {
+                setArchiveFolders(prev => prev.filter(f => f.id !== folderId));
+                if (selectedFolderId === folderId) {
+                    setSelectedFolderId("all");
+                }
+                fetchRecords(); // Refresh since some items' folderId might be deleted
+            }
+        } catch (err) {
+            console.error('Failed to delete folder:', err);
+        }
+    };
+
+    const confirmMove = async () => {
+        if (!recordToMove) return;
+        setMovingId(recordToMove.id);
+
+        try {
+            const response = await fetch(`/api/records/${recordToMove.id}/move-folder`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ folderId: selectedFolderId === 'all' || selectedFolderId === 'general' ? null : selectedFolderId })
+            });
+            const result = await response.json();
+            if (result.success) {
+                setShowMoveModal(false);
+                setRecordToMove(null);
+                fetchRecords();
+            }
+        } catch (err) {
+            console.error('Failed to move:', err);
         } finally {
-            setMatchingDemand(false);
+            setMovingId(null);
+        }
+    };
+
+    const handleMoveClick = (e, record) => {
+        e.stopPropagation();
+        setRecordToMove(record);
+        if (archiveFolders.length > 0) {
+            setSelectedFolderId(record.archiveFolderId || "");
+        }
+        setShowMoveModal(true);
+    };
+
+    useEffect(() => {
+        fetchRecords();
+        fetchArchiveFolders();
+        fetchCollections();
+        const interval = setInterval(fetchRecords, 5000);
+        return () => clearInterval(interval);
+    }, [token]);
+
+    const handleDeleteRecord = async (e, id) => {
+        e.stopPropagation();
+
+        try {
+            await fetch(`/api/records/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            setSavedRecords(prev => prev.filter(record => record.id !== id));
+        } catch (err) {
+            console.error('Failed to delete:', err);
+        }
+    };
+
+    const handleUpdateRecord = async (e, id, type) => {
+        e.stopPropagation();
+        const isNote = type === 'note';
+        const value = isNote ? editNoteValue : editStatusValue;
+
+        try {
+            const bodyData = isNote ? { note: value } : { status_tag: value };
+
+            const response = await fetch(`/api/records/${id}/update`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(bodyData)
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Update local state
+                setSavedRecords(prev => prev.map(record =>
+                    record.id === id
+                        ? { ...record, [isNote ? 'note' : 'status_tag']: value }
+                        : record
+                ));
+
+                // Exit edit mode
+                if (isNote) {
+                    setEditingNoteId(null);
+                } else {
+                    setEditingStatusId(null);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to update:', err);
+        }
+    };
+
+    const handleUnarchiveRecord = async (e, id) => {
+        e.stopPropagation();
+        setUnarchivingId(id);
+
+        try {
+            const response = await fetch(`/api/records/${id}/unarchive`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const result = await response.json();
+            if (result.success) {
+                setSavedRecords(prev => prev.filter(record => record.id !== id));
+            }
+        } catch (err) {
+            console.error('Failed to unarchive:', err);
+        } finally {
+            setUnarchivingId(null);
         }
     };
 
@@ -467,7 +389,9 @@ function SavedListings() {
     ])).values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
 
     const filteredRecords = savedRecords.filter(r => {
-        if (showPortfolioOnly && !r.isPortfolio) return false;
+        const fMatch = selectedFolderId === 'all' ? true :
+            selectedFolderId === 'general' ? !r.archiveFolderId :
+                r.archiveFolderId === selectedFolderId;
 
         const nMatch = selectedNeighborhood === 'Tümü' ||
             (selectedNeighborhood === 'Diğer' && !r.location) ||
@@ -539,7 +463,7 @@ function SavedListings() {
             }
         }
 
-        return nMatch && uMatch && mMatch && sMatch && searchMatch && priceMatch && dateMatch;
+        return fMatch && nMatch && uMatch && mMatch && sMatch && searchMatch && priceMatch && dateMatch;
     });
 
     const resetFilters = () => {
@@ -552,40 +476,14 @@ function SavedListings() {
         setMaxPrice('');
         setStartDate(null);
         setEndDate(null);
-        setSortBy('newest_approved');
         setCurrentPage(1);
     };
 
-    const sortedRecords = [...filteredRecords].sort((a, b) => {
-        const cleanPrice = (pStr) => {
-            if (!pStr) return 0;
-            let numericStr = String(pStr).replace(/[^0-9]/g, '');
-            return numericStr ? parseInt(numericStr, 10) : 0;
-        };
-
-        switch (sortBy) {
-            case 'newest_approved':
-                return new Date(b.approvedAt || b.scrapedAt) - new Date(a.approvedAt || a.scrapedAt);
-            case 'oldest_approved':
-                return new Date(a.approvedAt || a.scrapedAt) - new Date(b.approvedAt || b.scrapedAt);
-            case 'newest_scraped':
-                return new Date(b.scrapedAt) - new Date(a.scrapedAt);
-            case 'oldest_scraped':
-                return new Date(a.scrapedAt) - new Date(b.scrapedAt);
-            case 'price_desc':
-                return cleanPrice(b.price) - cleanPrice(a.price);
-            case 'price_asc':
-                return cleanPrice(a.price) - cleanPrice(b.price);
-            default:
-                return 0;
-        }
-    });
-
     // Pagination Calculations
-    const totalPages = Math.ceil(sortedRecords.length / itemsPerPage);
+    const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentRecords = sortedRecords.slice(indexOfFirstItem, indexOfLastItem);
+    const currentRecords = filteredRecords.slice(indexOfFirstItem, indexOfLastItem);
 
     const getExcelDataPreview = () => {
         if (filteredRecords.length === 0) return [];
@@ -662,6 +560,7 @@ function SavedListings() {
                     'Kredi Uygun': props['Krediye Uygunluk'] || '',
                     'Aidat': props['Aidat (TL)'] || '',
                     'Notlar': record.note || ''
+
                 };
             });
         }
@@ -728,86 +627,56 @@ function SavedListings() {
 
     return (
         <div className="font-sans animate-fade-in">
-            {/* Archive Modal */}
-            {showArchiveModal && (
+            {/* Move to Folder Modal */}
+            {showMoveModal && (
                 <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl animate-fade-in-up">
                         <div className="flex justify-between items-center mb-5">
-                            <h3 className="text-xl font-bold text-gray-900">Klasöre Arşivle</h3>
-                            <button onClick={() => { setShowArchiveModal(false); setRecordToArchive(null); }} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-full transition-colors">
+                            <h3 className="text-xl font-bold text-gray-900">Klasöre Taşı</h3>
+                            <button onClick={() => { setShowMoveModal(false); setRecordToMove(null); }} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-full transition-colors">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
 
                         <div className="mb-4">
                             <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                                <span className="font-semibold text-gray-900">"{recordToArchive?.title}"</span> ilanını arşivliyorsunuz.
+                                <span className="font-semibold text-gray-900">"{recordToMove?.title}"</span> ilanını taşıyorsunuz.
                             </p>
 
-                            {!isCreatingFolder ? (
-                                <>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Klasör Seçin:</label>
-                                    <select
-                                        value={selectedFolderId}
-                                        onChange={(e) => setSelectedFolderId(e.target.value)}
-                                        className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 p-3 outline-none"
-                                    >
-                                        <option value="">Genel (Klasörsüz)</option>
-                                        {archiveFolders.map(f => (
-                                            <option key={f.id} value={f.id}>{f.name}</option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        onClick={() => setIsCreatingFolder(true)}
-                                        className="mt-3 text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Yeni Klasör Oluştur
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Yeni Klasör Adı:</label>
-                                    <input
-                                        type="text"
-                                        value={newFolderName}
-                                        onChange={(e) => setNewFolderName(e.target.value)}
-                                        placeholder="Örn: Aciller, Favoriler..."
-                                        className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/50 p-3 outline-none"
-                                        autoFocus
-                                    />
-                                    <button
-                                        onClick={() => setIsCreatingFolder(false)}
-                                        className="mt-3 text-sm font-semibold text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                                        Klasör Seçimine Dön
-                                    </button>
-                                </>
-                            )}
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Hedef Klasör:</label>
+                            <select
+                                value={selectedFolderId === 'all' ? '' : selectedFolderId}
+                                onChange={(e) => setSelectedFolderId(e.target.value)}
+                                className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 p-3 outline-none"
+                            >
+                                <option value="">Genel (Klasörsüz)</option>
+                                {archiveFolders.map(f => (
+                                    <option key={f.id} value={f.id}>{f.name}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="flex justify-end gap-3 mt-6">
                             <button
-                                onClick={() => { setShowArchiveModal(false); setRecordToArchive(null); }}
+                                onClick={() => { setShowMoveModal(false); setRecordToMove(null); }}
                                 className="px-5 py-2.5 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
                             >
                                 İptal
                             </button>
                             <button
-                                onClick={confirmArchive}
-                                disabled={archivingId === recordToArchive?.id || (isCreatingFolder && !newFolderName.trim())}
-                                className="px-5 py-2.5 rounded-xl font-bold text-white bg-amber-500 hover:bg-amber-600 shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+                                onClick={confirmMove}
+                                disabled={movingId === recordToMove?.id}
+                                className="px-5 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
                             >
-                                {archivingId === recordToArchive?.id ? (
+                                {movingId === recordToMove?.id ? (
                                     <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
                                 ) : (
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 )}
-                                Arşive Taşı
+                                Taşı
                             </button>
                         </div>
                     </div>
@@ -1062,34 +931,95 @@ function SavedListings() {
                 <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
                     <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                         <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                        Kaydedilen İlanlar <span className="text-gray-500">({filteredRecords.length})</span>
+                        Arşiv <span className="text-gray-500">({filteredRecords.length})</span>
                     </h2>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setShowPortfolioOnly(!showPortfolioOnly)}
-                            title={showPortfolioOnly ? "Tüm İlanları Göster" : "Portföyümü Göster"}
-                            className={`group border font-semibold p-2 md:p-2.5 rounded-xl shadow-sm transition-all duration-700 ease-in-out flex items-center justify-center overflow-hidden max-w-[40px] md:max-w-[44px] hover:max-w-[200px] ${showPortfolioOnly ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                        >
-                            <svg className={`w-5 h-5 flex-shrink-0 min-w-[20px] transition-transform duration-700 ease-in-out group-hover:scale-110 ${showPortfolioOnly ? 'text-white' : 'text-indigo-500 fill-transparent'}`} fill="currentColor" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
-                            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[150px] group-hover:ml-2 transition-all duration-700 ease-in-out whitespace-nowrap overflow-hidden text-sm">{showPortfolioOnly ? "Tümü" : "Portföyüm"}</span>
-                        </button>
+                    <div className="flex gap-3">
                         <button
                             onClick={fetchRecords}
-                            title="Listeyi Yenile"
-                            className="group bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 font-semibold p-2 md:p-2.5 rounded-xl shadow-sm transition-all duration-700 ease-in-out flex items-center justify-center overflow-hidden max-w-[40px] md:max-w-[44px] hover:max-w-[200px]"
+                            className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-xl shadow-sm transition-all flex items-center gap-2"
                         >
-                            <svg className="w-5 h-5 flex-shrink-0 min-w-[20px] transition-transform duration-700 ease-in-out group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[100px] group-hover:ml-2 transition-all duration-700 ease-in-out whitespace-nowrap overflow-hidden text-sm">Yenile</span>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            Yenile
                         </button>
                         <button
                             onClick={() => setShowExportModal(true)}
                             disabled={savedRecords.length === 0}
-                            title="Excel Olarak İndir"
-                            className="group bg-green-600 hover:bg-green-700 text-white font-semibold p-2 md:p-2.5 rounded-xl shadow-sm transition-all duration-700 ease-in-out flex items-center justify-center overflow-hidden max-w-[40px] md:max-w-[44px] hover:max-w-[200px] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <svg className="w-5 h-5 flex-shrink-0 min-w-[20px] transition-transform duration-700 ease-in-out group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[100px] group-hover:ml-2 transition-all duration-700 ease-in-out whitespace-nowrap overflow-hidden text-sm">İndir</span>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Excel Olarak İndir
                         </button>
+                    </div>
+                </div>
+
+                {/* Folder Tabs UI */}
+                <div className="mb-6 bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center space-x-2 overflow-x-auto flex-1 no-scrollbar p-1">
+                        {/* Tüm Arşiv Tab */}
+                        <button
+                            onClick={() => setSelectedFolderId("all")}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${selectedFolderId === 'all' ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            Tüm Arşiv
+                        </button>
+
+                        {/* Genel (Klasörsüz) Tab */}
+                        <button
+                            onClick={() => setSelectedFolderId("general")}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${selectedFolderId === 'general' ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            Genel
+                        </button>
+
+                        {/* Dynamic Folders */}
+                        {archiveFolders.map((folder) => (
+                            <div key={folder.id} className="relative group flex items-center">
+                                <button
+                                    onClick={() => setSelectedFolderId(folder.id)}
+                                    className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 pr-8 ${selectedFolderId === folder.id ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                                >
+                                    {folder.name}
+                                </button>
+                                <button
+                                    onClick={(e) => handleDeleteFolder(folder.id, e)}
+                                    className="absolute right-2 opacity-0 group-hover:opacity-100 hover:text-red-500 text-gray-400 p-1 rounded-md hover:bg-red-50 transition-all pointer-events-auto"
+                                    title="Klasörü Sil"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Split line and Add button */}
+                    <div className="flex items-center gap-2 pl-4 border-l border-gray-100 ml-2 py-1 shrink-0">
+                        {isCreatingFolder ? (
+                            <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-indigo-200">
+                                <input
+                                    type="text"
+                                    value={newFolderName}
+                                    onChange={(e) => setNewFolderName(e.target.value)}
+                                    placeholder="Yeni klasör adı..."
+                                    className="bg-transparent border-none text-sm w-32 focus:ring-0 text-gray-800 placeholder-gray-400 px-2 outline-none"
+                                    autoFocus
+                                    onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+                                />
+                                <button onClick={handleCreateFolder} className="text-white bg-indigo-500 hover:bg-indigo-600 p-1.5 rounded-lg shadow-sm">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                </button>
+                                <button onClick={() => { setIsCreatingFolder(false); setNewFolderName(''); }} className="text-gray-400 hover:text-gray-600 p-1.5 hover:bg-gray-200 rounded-lg">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setIsCreatingFolder(true)}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-gray-50 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 text-sm font-semibold rounded-xl transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                <span className="hidden sm:inline">Klasör Ekle</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -1154,24 +1084,6 @@ function SavedListings() {
                                         className="bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-lg focus:ring-2 focus:ring-blue-500/50 block p-2 outline-none cursor-pointer transition-all hover:bg-gray-100"
                                     >
                                         {subCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                </div>
-
-                                <div className="w-px h-6 bg-gray-200 mx-1 hidden md:block"></div>
-
-                                <div className="flex items-center gap-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">Sıralama:</label>
-                                    <select
-                                        value={sortBy}
-                                        onChange={(e) => setSortBy(e.target.value)}
-                                        className="bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-lg focus:ring-2 focus:ring-blue-500/50 block p-2 outline-none cursor-pointer transition-all hover:bg-gray-100 min-w-[160px]"
-                                    >
-                                        <option value="newest_approved">En Yeni Onaylanan</option>
-                                        <option value="oldest_approved">En Eski Onaylanan</option>
-                                        <option value="newest_scraped">En Yeni İlan</option>
-                                        <option value="oldest_scraped">En Eski İlan</option>
-                                        <option value="price_desc">Fiyat (Önce En Yüksek)</option>
-                                        <option value="price_asc">Fiyat (Önce En Düşük)</option>
                                     </select>
                                 </div>
 
@@ -1287,34 +1199,20 @@ function SavedListings() {
 
                             {/* Neighborhood Filter Tabs */}
                             {neighborhoods.length > 2 && (
-                                <div className="flex items-center gap-2 max-w-full">
-                                    <button
-                                        onClick={() => setSelectedNeighborhood('Tümü')}
-                                        className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border flex-shrink-0 z-10 ${selectedNeighborhood === 'Tümü'
-                                            ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
-                                            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                            }`}
-                                    >
-                                        Tümü
-                                    </button>
-
-                                    <div className="w-px h-6 bg-gray-200 flex-shrink-0"></div>
-
-                                    <div className="overflow-x-auto pb-2 -mb-2 flex-grow custom-scrollbar flex items-center">
-                                        <div className="flex space-x-2">
-                                            {neighborhoods.filter(n => n !== 'Tümü').map(mahalle => (
-                                                <button
-                                                    key={mahalle}
-                                                    onClick={() => setSelectedNeighborhood(mahalle)}
-                                                    className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${selectedNeighborhood === mahalle
-                                                        ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
-                                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                        }`}
-                                                >
-                                                    {mahalle}
-                                                </button>
-                                            ))}
-                                        </div>
+                                <div className="overflow-x-auto pb-2 flex-grow scrollbar-hide">
+                                    <div className="flex space-x-2">
+                                        {neighborhoods.map(mahalle => (
+                                            <button
+                                                key={mahalle}
+                                                onClick={() => setSelectedNeighborhood(mahalle)}
+                                                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${selectedNeighborhood === mahalle
+                                                    ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
+                                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                    }`}
+                                            >
+                                                {mahalle}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
                             )}
@@ -1325,8 +1223,7 @@ function SavedListings() {
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 font-bold tracking-widest">
-                                            <th className="p-4 w-12 text-center lg:rounded-tl-3xl">P.Ö</th>
-                                            <th className="p-4 w-24 text-center">GÖRSEL</th>
+                                            <th className="p-4 w-24 text-center lg:rounded-tl-3xl">GÖRSEL</th>
                                             <th className="p-4">BAŞLIK</th>
                                             <th className="p-4">KATEGORİ</th>
                                             <th className="p-4">FİYAT</th>
@@ -1341,26 +1238,16 @@ function SavedListings() {
                                         {currentRecords.map((record, index) => (
                                             <React.Fragment key={record.id}>
                                                 <tr
-                                                    id={`record-${record.id}`}
                                                     onClick={() => toggleExpand(record.id)}
                                                     className={`cursor-pointer transition-colors group relative ${expandedRecordId === record.id ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}
                                                 >
-                                                    <td className="p-4 text-center relative" onClick={(e) => e.stopPropagation()}>
-                                                        {/* Row Number Outside - Centered Vertically */}
-                                                        <div className="absolute left-0 -translate-x-full top-1/2 -translate-y-1/2 flex items-center pr-4 pointer-events-none select-none">
+                                                    <td className="p-4 text-center relative">
+                                                        {/* Row Number Outside */}
+                                                        <div className="absolute left-0 -translate-x-full h-full top-1/2 -translate-y-1/2 flex items-center pr-3 pointer-events-none select-none">
                                                             <span className="text-[16px] font-black text-gray-400 opacity-0 group-hover:opacity-100 lg:opacity-50 transition-opacity">
                                                                 {(currentPage - 1) * itemsPerPage + index + 1}
                                                             </span>
                                                         </div>
-                                                        <button
-                                                            onClick={() => togglePortfolio(record.id, record.isPortfolio)}
-                                                            className={`p-1.5 rounded-lg transition-colors focus:outline-none ${record.isPortfolio ? 'text-indigo-500 bg-indigo-50 hover:bg-indigo-100' : 'text-gray-300 hover:text-indigo-400 hover:bg-gray-50'}`}
-                                                            title={record.isPortfolio ? "Portföyden Çıkar" : "Portföye Al"}
-                                                        >
-                                                            <svg className="w-6 h-6" fill={record.isPortfolio ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
-                                                        </button>
-                                                    </td>
-                                                    <td className="p-4 text-center">
                                                         {record.images && record.images[0] ? (
                                                             <img src={record.images[0]} alt="" className="w-16 h-12 object-cover rounded-md shadow-sm border border-gray-200 mx-auto" />
                                                         ) : (
@@ -1492,14 +1379,8 @@ function SavedListings() {
                                                             </button>
                                                         </div>
                                                         {/* ACTION BUTTONS WRAPPER - ABSOLUTE OUTSIDE */}
-                                                        <div className="absolute inset-y-0 -right-36 md:-right-48 w-36 md:w-48 flex items-center justify-center gap-1 md:gap-2 z-50">
-                                                            <button
-                                                                onClick={(e) => handleOpenDemandModal(e, record)}
-                                                                className={`flex items-center justify-center w-8 h-8 md:w-10 md:h-10 transition-all duration-300 rounded-full text-gray-400 hover:text-indigo-600 hover:scale-110 hover:bg-black/5 cursor-pointer ${expandedRecordId === record.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                                                title="Talebe Ekle"
-                                                            >
-                                                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
-                                                            </button>
+                                                        <div className="absolute inset-y-0 -right-24 md:-right-44 w-24 md:w-44 flex items-center justify-start gap-1 md:gap-2 z-50">
+                                                            {/* COLLECT BUTTON */}
                                                             <button
                                                                 onClick={(e) => handleCollectRecord(e, record)}
                                                                 disabled={collectingId === record.id}
@@ -1515,19 +1396,30 @@ function SavedListings() {
                                                                     <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
                                                                 )}
                                                             </button>
+
+                                                            {/* MOVE FOLDER BUTTON */}
                                                             <button
-                                                                onClick={(e) => handleArchiveRecord(e, record)}
-                                                                disabled={archivingId === record.id}
-                                                                className={`flex items-center justify-center w-8 h-8 md:w-10 md:h-10 transition-all duration-300 rounded-full ${archivingId === record.id ? 'text-amber-500 opacity-100 cursor-wait' : 'text-gray-400 hover:text-amber-600 hover:scale-110 hover:bg-black/5 cursor-pointer'} ${expandedRecordId === record.id || archivingId === record.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                                                title="İlanı Arşivle"
+                                                                onClick={(e) => handleMoveClick(e, record)}
+                                                                className={`flex items-center justify-center w-8 h-8 md:w-10 md:h-10 transition-all duration-300 rounded-full text-gray-400 hover:text-blue-600 hover:scale-110 hover:bg-black/5 cursor-pointer ${expandedRecordId === record.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                title="Klasöre Taşı"
                                                             >
-                                                                {archivingId === record.id ? (
+                                                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                                                            </button>
+
+                                                            {/* UNARCHIVE BUTTON */}
+                                                            <button
+                                                                onClick={(e) => handleUnarchiveRecord(e, record.id)}
+                                                                disabled={unarchivingId === record.id}
+                                                                className={`flex items-center justify-center w-8 h-8 md:w-10 md:h-10 transition-all duration-300 rounded-full ${unarchivingId === record.id ? 'text-indigo-500 opacity-100 cursor-wait' : 'text-gray-400 hover:text-indigo-600 hover:scale-110 hover:bg-black/5 cursor-pointer'} ${expandedRecordId === record.id || unarchivingId === record.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                title="Arşivden Çıkar"
+                                                            >
+                                                                {unarchivingId === record.id ? (
                                                                     <svg className="w-4 h-4 md:w-5 md:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                                                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                                     </svg>
                                                                 ) : (
-                                                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                                                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
                                                                 )}
                                                             </button>
                                                         </div>
@@ -1535,7 +1427,7 @@ function SavedListings() {
                                                 </tr>
                                                 {expandedRecordId === record.id && (
                                                     <tr className="bg-gray-50/50 animate-fade-in relative z-10 w-full">
-                                                        <td colSpan={user?.role === 'admin' ? "10" : "9"} className="p-0 border-b border-gray-100" style={{ maxWidth: 0 }}>
+                                                        <td colSpan={user?.role === 'admin' ? "9" : "8"} className="p-0 border-b border-gray-100" style={{ maxWidth: 0 }}>
                                                             <div className="p-6 w-full mx-auto">
                                                                 <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg group/note relative">
                                                                     <div className="flex justify-between items-start mb-1">
@@ -1830,80 +1722,8 @@ function SavedListings() {
                     </>
                 )}
             </div>
-
-            {/* Demand Selection Modal */}
-            {showDemandModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDemandModal(false)}></div>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg relative z-10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
-
-                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
-                                    Müşteri Talebiyle Eşleştir
-                                </h3>
-                                <p className="text-xs text-indigo-600 mt-1 line-clamp-1 opacity-70">
-                                    Seçilen İlan: <strong>{selectedListingForDemand?.title}</strong>
-                                </p>
-                            </div>
-                            <button onClick={() => setShowDemandModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-
-                        <div className="p-2 max-h-[60vh] overflow-y-auto custom-scrollbar bg-gray-50/50">
-                            {demands.length === 0 ? (
-                                <div className="text-center p-8 bg-white rounded-xl border border-dashed border-gray-200 m-4">
-                                    <p className="text-gray-500 font-medium">Aktif müşteri talebiniz bulunmuyor.</p>
-                                    <button
-                                        onClick={() => navigate('/sayfalar/talepler')}
-                                        className="mt-3 text-indigo-600 font-bold text-sm hover:underline"
-                                    >
-                                        Yeni Talep Oluştur →
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="space-y-2 p-2 relative">
-                                    {matchingDemand && (
-                                        <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-sm flex items-center justify-center rounded-xl">
-                                            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                                        </div>
-                                    )}
-                                    {demands.map(demand => (
-                                        <div
-                                            key={demand.id}
-                                            onClick={() => !matchingDemand && handleMatchToDemand(demand.id)}
-                                            className={`bg-white border rounded-xl p-4 flex justify-between items-center transition-all ${matchingDemand ? 'opacity-50 pointer-events-none' : 'hover:border-indigo-300 hover:shadow-md cursor-pointer border-gray-200'}`}
-                                        >
-                                            <div>
-                                                <h4 className="font-bold text-gray-900 group-hover:text-indigo-700">{demand.clientName}</h4>
-                                                <div className="flex gap-2 mt-1.5 opacity-80">
-                                                    <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
-                                                        {demand.demandType}
-                                                    </span>
-                                                    <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md ${demand.transactionType === 'Satılık' ? 'text-amber-700 bg-amber-50' : 'text-emerald-700 bg-emerald-50'}`}>
-                                                        {demand.transactionType}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-[10px] font-bold text-gray-400 block mb-1 uppercase tracking-widest">Bütçe</span>
-                                                <span className="font-bold text-gray-700 text-sm">
-                                                    {demand.details?.maxPrice ? `${Number(demand.details.maxPrice).toLocaleString('tr-TR')} TL` : 'Belirtilmedi'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-        </div>
+        </div >
     );
 }
 
-export default SavedListings;
+export default Archive;

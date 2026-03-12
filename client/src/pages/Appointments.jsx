@@ -5,6 +5,8 @@ import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 
@@ -196,18 +198,12 @@ function Appointments() {
     };
 
     const handleSelectSlot = (slotInfo) => {
-        // Prepare local timezone accurate date formatting for the form input
-        const d = slotInfo.start;
-        // The input format requires YYYY-MM-DDTHH:mm
-        const tzOffset = (new Date()).getTimezoneOffset() * 60000;
-        const localISOTime = (new Date(d - tzOffset)).toISOString().slice(0, 16);
-
         setEditingId(null);
         setFormData({
             customerName: '',
             customerPhone: '',
             quotedListing: null,
-            appointmentDate: localISOTime,
+            appointmentDate: slotInfo.start,
             status: 'Yeni',
             note: ''
         });
@@ -576,12 +572,25 @@ function Appointments() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-1">Randevu Tarihi</label>
-                                        <input
-                                            type="datetime-local"
-                                            value={formData.appointmentDate}
-                                            onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })}
-                                            className="w-full border-gray-300 rounded-xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2.5 border outline-none bg-gray-50"
-                                        />
+                                        <div className="relative">
+                                            <DatePicker
+                                                selected={formData.appointmentDate ? new Date(formData.appointmentDate) : null}
+                                                onChange={(date) => setFormData({ ...formData, appointmentDate: date })}
+                                                showTimeSelect
+                                                timeFormat="HH:mm"
+                                                timeIntervals={15}
+                                                timeCaption="Saat"
+                                                dateFormat="dd.MM.yyyy HH:mm"
+                                                locale={tr}
+                                                placeholderText="Tarih ve Saat Seçin"
+                                                className="w-full border-gray-300 rounded-xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2.5 border outline-none bg-gray-50 cursor-pointer"
+                                                portalId="root"
+                                                autoComplete="off"
+                                                showYearDropdown
+                                                showMonthDropdown
+                                                dropdownMode="select"
+                                            />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-1">Durum</label>

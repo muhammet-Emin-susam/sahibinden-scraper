@@ -11,9 +11,11 @@ import EfdalAI from './pages/EfdalAI';
 import Announcements from './pages/Announcements';
 import Appointments from './pages/Appointments';
 import ActivityFeed from './pages/ActivityFeed';
+import Archive from './pages/Archive';
 import Trash from './pages/Trash';
 import Demands from './pages/Demands';
 import Settings from './pages/Settings';
+import Collections from './pages/Collections';
 import Layout from './components/Layout';
 
 const ProtectedRoute = ({ children }) => {
@@ -50,6 +52,22 @@ function App() {
                         element={
                             <ProtectedRoute>
                                 <SavedListings />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/sayfalar/arsiv"
+                        element={
+                            <ProtectedRoute>
+                                <Archive />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/sayfalar/koleksiyonlar"
+                        element={
+                            <ProtectedRoute>
+                                <Collections />
                             </ProtectedRoute>
                         }
                     />

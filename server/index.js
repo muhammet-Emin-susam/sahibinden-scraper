@@ -79,6 +79,8 @@ const DB_ANNOUNCEMENTS = "announcements";
 const DB_ACTIVITY = "activity_log";
 const DB_APPOINTMENTS = "appointments";
 const DB_DEMANDS = "demands";
+const DB_ARCHIVE_FOLDERS = "archive_folders";
+const DB_COLLECTIONS = "collections";
 
 const JWT_SECRET = process.env.JWT_SECRET || 'sahibinden-scraper-super-secret-key-123!';
 
@@ -585,7 +587,7 @@ app.get('/api/records', authenticateToken, async (req, res) => {
     try {
         let q;
         if (req.user.role === 'admin') {
-            q = query(collection(db, DB_COLLECTION), orderBy("scrapedAt", "desc"));
+            q = query(collection(db, DB_COLLECTION), orderBy("approvedAt", "desc"));
         } else {
             // Because Firestore requires a composite index for equality on userId and ordering by scrapedAt
             // we will fetch by userId and sort in-memory to avoid index creation hassles for the user
@@ -600,7 +602,11 @@ app.get('/api/records', authenticateToken, async (req, res) => {
         }));
 
         if (req.user.role !== 'admin') {
-            records.sort((a, b) => new Date(b.scrapedAt) - new Date(a.scrapedAt));
+            records.sort((a, b) => {
+                const dateA = new Date(a.approvedAt || a.scrapedAt);
+                const dateB = new Date(b.approvedAt || b.scrapedAt);
+                return dateB - dateA;
+            });
         }
 
         res.json({ success: true, data: records });
@@ -657,6 +663,8 @@ app.post('/api/save', authenticateToken, async (req, res) => {
                 if (latestDuplicate.note) newRecord.note = latestDuplicate.note;
                 if (latestDuplicate.status_tag) newRecord.status_tag = latestDuplicate.status_tag;
                 if (latestDuplicate.aiAnalysis) newRecord.aiAnalysis = latestDuplicate.aiAnalysis;
+                if (!newRecord.officeName && latestDuplicate.officeName) newRecord.officeName = latestDuplicate.officeName;
+                if (newRecord.isOffice === undefined && latestDuplicate.isOffice !== undefined) newRecord.isOffice = latestDuplicate.isOffice;
             }
 
             const deletePromises = duplicatesSnap.docs.map(d => {
@@ -671,18 +679,26 @@ app.post('/api/save', authenticateToken, async (req, res) => {
         }
 
         // Enforce timestamp and attribution
-        newRecord.scrapedAt = new Date().toISOString();
+        newRecord.scrapedAt = newRecord.scrapedAt ? new Date(newRecord.scrapedAt).toISOString() : new Date().toISOString();
         newRecord.userId = req.user.id;
         delete newRecord.forceSave;
         delete newRecord.overwrite;
         newRecord.username = req.user.username;
         newRecord.displayName = req.user.displayName || req.user.username;
-        newRecord.status = req.user.role === 'admin' ? 'approved' : 'pending'; // Admin'in ilanları direkt onaylı sayılır
+        newRecord.status = req.user.role === 'admin' ? 'approved' : 'pending';
+        if (newRecord.status === 'approved') {
+            newRecord.approvedAt = new Date().toISOString();
+        }
 
         // Automatic Categorization
         const { mainCategory, subCategory } = categorizeListing(newRecord);
         newRecord.mainCategory = mainCategory;
         newRecord.subCategory = subCategory;
+
+        // Ensure officeName/Logo/isOffice are at least empty strings or defaults if not present
+        if (!newRecord.officeName) newRecord.officeName = '';
+        if (!newRecord.officeLogo) newRecord.officeLogo = '';
+        if (newRecord.isOffice === undefined) newRecord.isOffice = false;
 
         const docRef = await addDoc(collection(db, DB_COLLECTION), newRecord);
         console.log("Document written with ID: ", docRef.id, " by ", req.user.username);
@@ -796,6 +812,239 @@ app.put('/api/records/:id/update', authenticateToken, async (req, res) => {
         res.json({ success: true, message: 'Record updated successfully', data: updateData });
     } catch (err) {
         console.error("Error updating document: ", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/records/:id/portfolio - İlanı portföye ekleme/çıkarma
+app.put('/api/records/:id/portfolio', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { isPortfolio } = req.body;
+
+    try {
+        const docRef = doc(db, DB_COLLECTION, id);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Kayıt bulunamadı' });
+        }
+
+        if (req.user.role !== 'admin' && docSnap.data().userId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Yetkiniz yok' });
+        }
+
+        await updateDoc(docRef, { isPortfolio: !!isPortfolio });
+
+        // Activity log
+        await logActivity({
+            listingId: docSnap.id,
+            listingTitle: docSnap.data().title || 'Bilinmeyen İlan',
+            action: isPortfolio ? 'added_to_portfolio' : 'removed_from_portfolio',
+            by: req.user.displayName || req.user.username,
+            byId: req.user.id
+        });
+
+        res.json({ success: true, message: isPortfolio ? 'Portföye eklendi' : 'Portföyden çıkarıldı', isPortfolio: !!isPortfolio });
+    } catch (err) {
+        console.error("Error updating portfolio status: ", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/records/:id/archive - İlanı arşivleme
+app.put('/api/records/:id/archive', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { folderId } = req.body || {};
+
+    try {
+        const docRef = doc(db, DB_COLLECTION, id);
+        const docSnap = await getDoc(docRef);
+
+        if (req.user.role !== 'admin') {
+            if (!docSnap.exists() || docSnap.data().userId !== req.user.id) {
+                return res.status(403).json({ success: false, error: 'Unauthorized to archive this record' });
+            }
+        }
+
+        const listingData = docSnap.exists() ? docSnap.data() : {};
+
+        const updateData = {
+            status: 'archived',
+            archivedAt: new Date().toISOString()
+        };
+
+        if (folderId) {
+            updateData.archiveFolderId = folderId;
+        }
+
+        await updateDoc(docRef, updateData);
+
+        await logActivity({
+            listingId: id,
+            listingTitle: listingData.title || '',
+            action: 'archived',
+            from: listingData.status || 'approved',
+            to: 'archived',
+            by: req.user.displayName || req.user.username,
+            byId: req.user.id
+        });
+
+        res.json({ success: true, message: 'Record archived successfully' });
+    } catch (err) {
+        console.error("Error archiving document: ", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/records/:id/move-folder - Arşiv klasörünü değiştir
+app.put('/api/records/:id/move-folder', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { folderId } = req.body;
+
+    try {
+        const docRef = doc(db, DB_COLLECTION, id);
+        const docSnap = await getDoc(docRef);
+
+        if (req.user.role !== 'admin') {
+            if (!docSnap.exists() || docSnap.data().userId !== req.user.id) {
+                return res.status(403).json({ success: false, error: 'Unauthorized to move this record' });
+            }
+        }
+
+        const updateData = {};
+        if (folderId) {
+            updateData.archiveFolderId = folderId;
+        } else {
+            updateData.archiveFolderId = deleteField();
+        }
+
+        await updateDoc(docRef, updateData);
+        res.json({ success: true, message: 'Record moved to folder successfully' });
+    } catch (err) {
+        console.error("Error moving document to folder: ", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /api/archive-folders - Arşiv klasörlerini getir
+app.get('/api/archive-folders', authenticateToken, async (req, res) => {
+    try {
+        let q;
+        if (req.user.role === 'admin') {
+            q = query(collection(db, DB_ARCHIVE_FOLDERS));
+        } else {
+            // Because Firestore requires a composite index for equality on userId and ordering by createdAt
+            // we will fetch by userId and sort in-memory to avoid index creation hassles for the user
+            q = query(collection(db, DB_ARCHIVE_FOLDERS), where('userId', '==', req.user.id));
+        }
+
+        const querySnapshot = await getDocs(q);
+        const folders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Sort by createdAt ascending in-memory
+        folders.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+        res.json({ success: true, data: folders });
+    } catch (err) {
+        console.error("Error fetching archive folders: ", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/archive-folders - Yeni arşiv klasörü ekle
+app.post('/api/archive-folders', authenticateToken, async (req, res) => {
+    const { name } = req.body;
+
+    if (!name || name.trim() === '') {
+        return res.status(400).json({ success: false, error: 'Folder name is required' });
+    }
+
+    try {
+        const docRef = await addDoc(collection(db, DB_ARCHIVE_FOLDERS), {
+            name: name.trim(),
+            userId: req.user.id,
+            userName: req.user.username,
+            createdAt: new Date().toISOString()
+        });
+        res.json({ success: true, message: 'Folder created successfully', data: { id: docRef.id, name: name.trim() } });
+    } catch (err) {
+        console.error("Error creating archive folder: ", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /api/archive-folders/:id - Arşiv klasörü sil
+app.delete('/api/archive-folders/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const docRef = doc(db, DB_ARCHIVE_FOLDERS, id);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Folder not found' });
+        }
+
+        if (req.user.role !== 'admin' && docSnap.data().userId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Unauthorized to delete this folder' });
+        }
+
+        await deleteDoc(docRef);
+
+        // Klasörü silince içindeki ilanların klasör id'sini temizleyebiliriz
+        const recordsQuery = query(collection(db, DB_COLLECTION), where('archiveFolderId', '==', id));
+        const recordsSnapshot = await getDocs(recordsQuery);
+
+        if (!recordsSnapshot.empty) {
+            const batch = writeBatch(db);
+            recordsSnapshot.docs.forEach(docSnap => {
+                batch.update(docSnap.ref, { archiveFolderId: deleteField() });
+            });
+            await batch.commit();
+        }
+
+        res.json({ success: true, message: 'Folder deleted successfully' });
+    } catch (err) {
+        console.error("Error deleting archive folder: ", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/records/:id/unarchive - İlanı arşivden çıkarma
+app.put('/api/records/:id/unarchive', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const docRef = doc(db, DB_COLLECTION, id);
+        const docSnap = await getDoc(docRef);
+
+        if (req.user.role !== 'admin') {
+            if (!docSnap.exists() || docSnap.data().userId !== req.user.id) {
+                return res.status(403).json({ success: false, error: 'Unauthorized to unarchive this record' });
+            }
+        }
+
+        const listingData = docSnap.exists() ? docSnap.data() : {};
+
+        await updateDoc(docRef, {
+            status: 'approved',
+            unarchivedAt: new Date().toISOString(),
+            approvedAt: new Date().toISOString()
+        });
+
+        await logActivity({
+            listingId: id,
+            listingTitle: listingData.title || '',
+            action: 'unarchived',
+            from: listingData.status || 'archived',
+            to: 'approved',
+            by: req.user.displayName || req.user.username,
+            byId: req.user.id
+        });
+
+        res.json({ success: true, message: 'Record unarchived successfully' });
+    } catch (err) {
+        console.error("Error unarchiving document: ", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1320,7 +1569,10 @@ app.post('/api/demands/:id/match', authenticateToken, async (req, res) => {
             city: listingData.city,
             district: listingData.district,
             neighborhood: listingData.neighborhood,
-            dateAdded: new Date().toISOString()
+            dateAdded: new Date().toISOString(),
+            sellerName: listingData.sellerName || '',
+            sellerPhone: listingData.sellerPhone || '',
+            ilanNo: listingData.properties?.['İlan No'] || ''
         });
 
         await updateDoc(demandRef, { matchedListings });
@@ -1333,7 +1585,8 @@ app.post('/api/demands/:id/match', authenticateToken, async (req, res) => {
             await updateDoc(listingRef, {
                 status: 'matched',
                 matchedDemandId: demandId,
-                matchedDemandClient: demand.clientName
+                matchedDemandClient: demand.clientName,
+                approvedAt: new Date().toISOString()
             });
         }
 
@@ -1352,6 +1605,57 @@ app.post('/api/demands/:id/match', authenticateToken, async (req, res) => {
         res.json({ success: true, message: 'İlan başarıyla talebe eklendi.' });
     } catch (err) {
         console.error("POST /api/demands/match Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /api/demands/:demandId/match/:listingId
+app.delete('/api/demands/:demandId/match/:listingId', authenticateToken, async (req, res) => {
+    try {
+        const { demandId, listingId } = req.params;
+
+        const demandRef = doc(db, DB_DEMANDS, demandId);
+        const demandSnap = await getDoc(demandRef);
+
+        if (!demandSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Talep bulunamadı.' });
+        }
+
+        const demand = demandSnap.data();
+        const matchedListings = demand.matchedListings || [];
+
+        // Remove from matched array
+        const updatedListings = matchedListings.filter(l => l.listingId !== listingId);
+
+        await updateDoc(demandRef, { matchedListings: updatedListings });
+
+        // Update listing status back to approved if it exists
+        const listingRef = doc(db, DB_COLLECTION, listingId);
+        const listingSnap = await getDoc(listingRef);
+
+        if (listingSnap.exists()) {
+            await updateDoc(listingRef, {
+                status: 'approved',
+                matchedDemandId: deleteField(),
+                matchedDemandClient: deleteField()
+            });
+
+            // Log action
+            await logActivity({
+                listingId: listingId,
+                listingTitle: listingSnap.data().title || 'Bilinmeyen İlan',
+                action: 'unmatched_from_demand',
+                from: 'matched',
+                to: 'approved',
+                by: req.user.displayName || req.user.username,
+                byId: req.user.id,
+                note: `Talepten Çıkarıldı: ${demand.clientName}`
+            });
+        }
+
+        res.json({ success: true, message: 'İlan başarıyla talepten çıkarıldı.' });
+    } catch (err) {
+        console.error("DELETE /api/demands/match Error:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1563,6 +1867,154 @@ app.post('/api/ai/clear/:id', authenticateToken, async (req, res) => {
         res.json({ success: true, message: 'Analiz temizlendi.' });
     } catch (err) {
         console.error("Error clearing analysis:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+// COLLECTIONS API
+// ==========================================
+
+// GET /api/collections
+app.get('/api/collections', authenticateToken, async (req, res) => {
+    try {
+        let q;
+        if (req.user.role === 'admin') {
+            q = collection(db, DB_COLLECTIONS);
+        } else {
+            q = query(collection(db, DB_COLLECTIONS), where('userId', '==', req.user.id));
+        }
+
+        const snapshot = await getDocs(q);
+        const folders = [];
+        snapshot.forEach(doc => folders.push({ id: doc.id, ...doc.data() }));
+
+        res.json({ success: true, data: folders });
+    } catch (err) {
+        console.error("Error fetching collections:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/collections
+app.post('/api/collections', authenticateToken, async (req, res) => {
+    const { name } = req.body;
+    if (!name || name.trim() === '') {
+        return res.status(400).json({ success: false, error: 'Name is required' });
+    }
+
+    try {
+        const newDocRef = await addDoc(collection(db, DB_COLLECTIONS), {
+            name: name.trim(),
+            userId: req.user.id,
+            username: req.user.username,
+            createdAt: new Date().toISOString()
+        });
+
+        res.json({
+            success: true,
+            data: { id: newDocRef.id, name: name.trim(), userId: req.user.id }
+        });
+    } catch (err) {
+        console.error("Error creating collection:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/collections/:id (Rename)
+app.put('/api/collections/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || name.trim() === '') {
+        return res.status(400).json({ success: false, error: 'Name is required' });
+    }
+
+    try {
+        const docRef = doc(db, DB_COLLECTIONS, id);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Collection not found' });
+        }
+
+        if (req.user.role !== 'admin' && docSnap.data().userId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Unauthorized to rename this collection' });
+        }
+
+        await updateDoc(docRef, { name: name.trim() });
+        res.json({ success: true, message: 'Collection renamed successfully' });
+    } catch (err) {
+        console.error("Error renaming collection:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /api/collections/:id
+app.delete('/api/collections/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const docRef = doc(db, DB_COLLECTIONS, id);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Collection not found' });
+        }
+
+        if (req.user.role !== 'admin' && docSnap.data().userId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Unauthorized to delete this collection' });
+        }
+
+        await deleteDoc(docRef);
+
+        // Remove this collection ID from all records that have it
+        const recordsQuery = query(collection(db, DB_COLLECTION), where('collections', 'array-contains', id));
+        const recordsSnapshot = await getDocs(recordsQuery);
+        const batchUpdates = [];
+        recordsSnapshot.forEach(recordDoc => {
+            const currentCollections = recordDoc.data().collections || [];
+            batchUpdates.push(
+                updateDoc(doc(db, DB_COLLECTION, recordDoc.id), {
+                    collections: currentCollections.filter(cId => cId !== id)
+                })
+            );
+        });
+        await Promise.all(batchUpdates);
+
+        res.json({ success: true, message: 'Collection deleted successfully' });
+    } catch (err) {
+        console.error("Error deleting collection:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/records/:id/collections
+app.put('/api/records/:id/collections', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { collectionIds } = req.body; // Expecting an array of collection IDs
+
+    if (!Array.isArray(collectionIds)) {
+        return res.status(400).json({ success: false, error: 'collectionIds must be an array' });
+    }
+
+    try {
+        const docRef = doc(db, DB_COLLECTION, id);
+        const docSnap = await getDoc(docRef);
+
+        if (req.user.role !== 'admin') {
+            if (!docSnap.exists() || docSnap.data().userId !== req.user.id) {
+                return res.status(403).json({ success: false, error: 'Unauthorized to update collections for this record' });
+            }
+        }
+
+        if (docSnap.exists()) {
+            await updateDoc(docRef, { collections: collectionIds });
+            res.json({ success: true, message: 'Collections updated successfully' });
+        } else {
+            res.status(404).json({ success: false, error: 'Record not found' });
+        }
+    } catch (err) {
+        console.error("Error updating document collections:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });

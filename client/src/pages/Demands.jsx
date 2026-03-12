@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 function Demands() {
     const { token } = useContext(AuthContext);
+    const navigate = useNavigate();
     const [demands, setDemands] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [modalMode, setModalMode] = useState('create'); // 'create' or 'view'
     const [selectedDemand, setSelectedDemand] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [removingMatchId, setRemovingMatchId] = useState(null);
 
     const [formData, setFormData] = useState({ clientName: '', clientPhone: '' });
     const [demandType, setDemandType] = useState('Konut'); // Konut, Arsa, Ticari
@@ -110,6 +113,41 @@ function Demands() {
             alert('Kayıt başarısız');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleRemoveMatch = async (e, demandId, listingId) => {
+        e.stopPropagation();
+        if (!window.confirm('Bu ilanı talepten çıkarmak istediğinize emin misiniz?')) return;
+
+        setRemovingMatchId(listingId);
+        try {
+            const res = await fetch(`/api/demands/${demandId}/match/${listingId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                // Update local selected demand and demands list
+                const updateMatched = (prev) => prev.map(d => {
+                    if (d.id === demandId) {
+                        return { ...d, matchedListings: d.matchedListings.filter(l => l.listingId !== listingId) };
+                    }
+                    return d;
+                });
+                setDemands(updateMatched);
+                if (selectedDemand?.id === demandId) {
+                    setSelectedDemand(prev => ({ ...prev, matchedListings: prev.matchedListings.filter(l => l.listingId !== listingId) }));
+                }
+            } else {
+                alert(data.error || 'İlan çıkarılırken bir hata oluştu.');
+            }
+        } catch (err) {
+            console.error('Failed to remove match:', err);
+            alert('İşlem başarısız oldu.');
+        } finally {
+            setRemovingMatchId(null);
         }
     };
 
@@ -541,8 +579,47 @@ function Demands() {
                                 ) : (
                                     <div className="space-y-4">
                                         {selectedDemand.matchedListings.map(l => (
-                                            <div key={l.listingId} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:border-blue-200 hover:shadow-md transition-all group">
-                                                <h5 className="font-bold text-gray-800 text-sm leading-tight mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors" title={l.title}>{l.title}</h5>
+                                            <div
+                                                key={l.listingId}
+                                                onClick={() => {
+                                                    setShowModal(false);
+                                                    navigate('/sayfalar/kaydedilenler', { state: { expandRecordId: l.listingId } });
+                                                }}
+                                                className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 transition-all group cursor-pointer"
+                                            >
+                                                <div className="flex justify-between items-start gap-2 mb-2">
+                                                    <h5 className="font-bold text-gray-800 text-sm leading-tight line-clamp-2 group-hover:text-indigo-600 transition-colors" title={l.title}>{l.title}</h5>
+                                                    <div className="flex items-start gap-2">
+                                                        {(l.ilanNo || l.sellerName || l.officeName) && (
+                                                            <div className="flex flex-col items-end shrink-0 gap-1 text-[10px]">
+                                                                {l.ilanNo && <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-bold border border-gray-200">#{l.ilanNo}</span>}
+                                                                {l.sellerName && <span className="text-gray-500 font-medium truncate max-w-[100px]" title={l.sellerName}>{l.sellerName}</span>}
+                                                                {l.officeName ? (
+                                                                    <span className="text-gray-400 font-medium italic flex items-center gap-1 truncate max-w-[100px]" title={l.officeName}>
+                                                                        {l.officeLogo && <img src={l.officeLogo} alt="" className="w-3 h-3 object-contain opacity-70" />}
+                                                                        {l.officeName}
+                                                                    </span>
+                                                                ) : l.isOffice && (
+                                                                    <span className="text-indigo-300 font-medium italic flex items-center gap-1">
+                                                                        Emlak Ofisinden
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        <button
+                                                            onClick={(e) => handleRemoveMatch(e, selectedDemand.id, l.listingId)}
+                                                            className="text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 p-1.5 rounded-md border border-gray-100 transition-colors"
+                                                            title="Talepten Çıkar"
+                                                            disabled={removingMatchId === l.listingId}
+                                                        >
+                                                            {removingMatchId === l.listingId ? (
+                                                                <svg className="w-3.5 h-3.5 animate-spin text-red-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                            ) : (
+                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                </div>
 
                                                 <div className="flex items-center gap-1 text-xs text-gray-600 mb-3 bg-gray-50 w-fit px-2 py-1 rounded-md border border-gray-100">
                                                     <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
