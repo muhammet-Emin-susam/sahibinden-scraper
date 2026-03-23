@@ -204,10 +204,52 @@ const Layout = ({ children }) => {
         return () => clearInterval(interval);
     }, [token, user]);
 
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    // Close mobile menu on route change
+    useEffect(() => {
+        setIsMobileMenuOpen(false);
+    }, [location.pathname]);
+
     return (
-        <div className="h-screen overflow-hidden flex bg-gray-50 p-4 gap-4 box-border">
+        <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-gray-50 p-0 md:p-4 gap-0 md:gap-4 box-border relative">
+            
+            {/* Mobile Header (Only visible on small screens) */}
+            <header className="md:hidden flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 z-50 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    </div>
+                    <span className="text-lg font-black tracking-tight text-gray-900">İlan<span className="text-blue-600">Yönetimi</span></span>
+                </div>
+                <button 
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="p-2 -mr-2 text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {isMobileMenuOpen ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                        ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16m-7 6h7" />
+                        )}
+                    </svg>
+                </button>
+            </header>
+
+            {/* Mobile Sidebar Backdrop */}
+            {isMobileMenuOpen && (
+                <div 
+                    className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 md:hidden transition-opacity animate-in fade-in duration-300"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
-            <aside className={`${isSidebarExpanded ? 'w-64' : 'w-20'} transition-all duration-300 bg-white border border-gray-200 shadow-sm rounded-3xl flex flex-col hidden md:flex h-full z-40 flex-shrink-0 relative group/sidebar`}>
+            <aside className={`
+                ${isSidebarExpanded ? 'w-64' : 'w-20'} 
+                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+                transition-all duration-300 bg-white border-r md:border border-gray-200 shadow-xl md:shadow-sm md:rounded-3xl flex flex-col fixed md:relative h-full top-0 left-0 bottom-0 z-50 flex-shrink-0 group/sidebar
+            `}>
                 <div className={`p-6 border-b ${isSidebarExpanded ? 'border-gray-100 h-[72px] flex items-center justify-between flex-shrink-0' : 'border-transparent flex flex-col items-center justify-center p-0 pt-6 pb-2 gap-5'}`}>
                     <h1 className={`text-xl font-black tracking-tight text-gray-900 flex items-center gap-2 overflow-hidden ${isSidebarExpanded ? '' : 'hidden'}`}>
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md flex-shrink-0">
@@ -215,9 +257,11 @@ const Layout = ({ children }) => {
                         </div>
                         {isSidebarExpanded && <span className="whitespace-nowrap">İlan<span className="text-blue-600">Yönetimi</span></span>}
                     </h1>
+
+                    {/* Desktop Toggle (Hidden on Mobile) */}
                     <button
                         onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-                        className={`text-gray-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-gray-100 transition-colors ${isSidebarExpanded ? '' : ''}`}
+                        className={`text-gray-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-gray-100 transition-colors hidden md:block`}
                         title={isSidebarExpanded ? "Menüyü Daralt" : "Menüyü Genişlet"}
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -228,8 +272,17 @@ const Layout = ({ children }) => {
                             )}
                         </svg>
                     </button>
+
+                    {/* Mobile Close Button (Hidden on Desktop) */}
+                    <button 
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="md:hidden text-gray-400 hover:text-gray-600 p-1"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+
                     {!isSidebarExpanded && (
-                        <div className="w-11 h-11 bg-blue-600 rounded-[14px] flex items-center justify-center text-white shadow-md flex-shrink-0 cursor-pointer hover:scale-105 transition-transform border border-blue-500" title="İlan Yönetimi" onClick={() => setIsSidebarExpanded(true)}>
+                        <div className="w-11 h-11 bg-blue-600 rounded-[14px] flex items-center justify-center text-white shadow-md flex-shrink-0 cursor-pointer hover:scale-105 transition-transform border border-blue-500 hidden md:flex" title="İlan Yönetimi" onClick={() => setIsSidebarExpanded(true)}>
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                         </div>
                     )}
@@ -279,7 +332,7 @@ const Layout = ({ children }) => {
                     )}
                 </div>
 
-                <div className={`p-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-2 relative rounded-b-3xl ${isSidebarExpanded ? '' : 'items-center'}`} ref={settingsRef}>
+                <div className={`p-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-2 relative rounded-b-3xl md:rounded-3xl invisible md:visible ${isSidebarExpanded ? '' : 'items-center'}`} ref={settingsRef}>
                     <div className="flex items-center gap-3">
                         <div className="w-11 h-11 rounded-[14px] bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-lg flex-shrink-0 cursor-pointer transition-transform hover:scale-105 shadow-sm border border-blue-50" onClick={() => !isSidebarExpanded && setShowSettings(!showSettings)} title={!isSidebarExpanded ? 'Ayarlar' : undefined}>
                             {user?.username?.[0]?.toUpperCase() || 'U'}
@@ -311,7 +364,7 @@ const Layout = ({ children }) => {
                                 onClick={() => { setShowSettings(false); logout(); }}
                                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
                             >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3 3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                                 Çıkış Yap
                             </button>
                         </div>
@@ -320,7 +373,7 @@ const Layout = ({ children }) => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col h-full overflow-hidden bg-white shadow-sm rounded-3xl border border-gray-200">
+            <main className="flex-1 flex flex-col h-full overflow-hidden bg-white shadow-sm md:rounded-3xl border-t md:border border-gray-200">
                 <div className="flex-1 overflow-y-auto">
                     <div className="max-w-7xl mx-auto p-4 md:p-8">
                         {children}
