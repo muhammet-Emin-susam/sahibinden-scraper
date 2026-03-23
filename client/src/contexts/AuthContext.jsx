@@ -25,20 +25,24 @@ export const AuthProvider = ({ children }) => {
         const originalFetch = window.fetch;
 
         window.fetch = async (...args) => {
-            const response = await originalFetch(...args);
+            try {
+                const response = await originalFetch.apply(window, args);
 
-            if (response.status === 401) {
-                // Clone so the original response body can still be consumed by caller
-                const clone = response.clone();
-                try {
-                    const data = await clone.json();
-                    if (data.error === 'USER_DELETED' && logoutRef.current) {
-                        logoutRef.current();
-                    }
-                } catch (_) { /* ignore parse errors */ }
+                if (response.status === 401) {
+                    const clone = response.clone();
+                    try {
+                        const data = await clone.json();
+                        if (data.error === 'USER_DELETED' && logoutRef.current) {
+                            logoutRef.current();
+                        }
+                    } catch (_) { }
+                }
+
+                return response;
+            } catch (err) {
+                console.error(`Fetch error for ${args[0]}:`, err);
+                throw err;
             }
-
-            return response;
         };
 
         return () => {

@@ -194,48 +194,22 @@ function Regions() {
     };
 
     return (
-        <div className="font-sans animate-fade-in pb-10 flex flex-col h-screen">
-            <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                    Bölgeler Haritası (Konya)
-                </h2>
-                <div className="flex items-center gap-6">
-                    {user?.role !== 'admin' && (
-                        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-200">
-                            <span className="text-sm font-medium text-gray-700">Sadece Benim Bölgelerim</span>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={showOnlyMine}
-                                    onChange={(e) => setShowOnlyMine(e.target.checked)}
-                                />
-                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-                            </label>
-                        </div>
-                    )}
-                    <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-gray-700 w-auto whitespace-nowrap">İlçe Filtresi:</label>
-                        <select
-                            className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
-                            value={selectedDistrict}
-                            onChange={(e) => setSelectedDistrict(e.target.value)}
-                        >
-                            <option value="Tümü">Tüm Konya</option>
-                            {districts.map((d, i) => (
-                                <option key={i} value={d}>{d}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-[#f8fafc] rounded-xl shadow-lg border border-gray-200 overflow-hidden flex-1 relative z-0">
-                <MapContainer center={position} zoom={8.4} style={{ height: '100%', width: '100%', background: '#f8fafc' }}>
+        <div className="font-sans animate-fade-in relative h-screen w-full overflow-hidden bg-slate-50">
+            {/* Main Map Container */}
+            <div className="absolute inset-0 z-0">
+                <MapContainer 
+                    center={position} 
+                    zoom={9} 
+                    zoomControl={false} // We will add it manually or just leave it out for cleaner look
+                    style={{ height: '100%', width: '100%', background: '#f8fafc' }}
+                >
+                    <TileLayer
+                        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    />
                     {mahalleler && (
                         <GeoJSON
-                            key={selectedDistrict + showOnlyMine + assignments.length + users.length + JSON.stringify(assignments)} // Force remount on data changes
+                            key={selectedDistrict + showOnlyMine + assignments.length + users.length + JSON.stringify(assignments)}
                             data={mahalleler}
                             style={styleFeature}
                             onEachFeature={onEachMahalle}
@@ -245,17 +219,75 @@ function Regions() {
                 </MapContainer>
             </div>
 
-            <div className="mt-4 flex gap-6 text-sm text-gray-600 justify-center flex-wrap">
-                <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-blue-500 rounded-sm border border-gray-300 opacity-60"></div>
-                    <span>Atanmamış Mahalle</span>
-                </div>
-                {users.filter(u => u.color).map(u => (
-                    <div key={u.id} className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded-sm border border-gray-300 opacity-60" style={{ backgroundColor: u.color }}></div>
-                        <span>{u.displayName || u.username}</span>
+            {/* Top Floating Panel: Title & District Filter */}
+            <div className="absolute top-6 left-6 right-6 z-[1000] flex flex-col md:flex-row items-center justify-between gap-4 pointer-events-none">
+                <div className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-2xl shadow-slate-200/50 rounded-2xl px-6 py-4 pointer-events-auto flex items-center gap-4 transition-all hover:bg-white/90">
+                    <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
+                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
                     </div>
-                ))}
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800 leading-tight">Bölgeler</h2>
+                        <p className="text-xs text-slate-500 font-medium tracking-wide uppercase">Konya Bölge Dağılımı</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 pointer-events-auto">
+                    {user?.role !== 'admin' && (
+                        <div className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-2xl shadow-slate-200/50 rounded-2xl px-5 py-3 flex items-center gap-3 transition-all hover:bg-white/90">
+                            <span className="text-sm font-semibold text-slate-700">Bölgelerim</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={showOnlyMine}
+                                    onChange={(e) => setShowOnlyMine(e.target.checked)}
+                                />
+                                <div className="w-10 h-5.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                    )}
+                    
+                    <div className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-2xl shadow-slate-200/50 rounded-2xl px-5 py-2.5 flex items-center gap-3 transition-all hover:bg-white/90">
+                        <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">İlçe:</span>
+                        <select
+                            className="bg-transparent border-none text-sm font-bold text-blue-600 outline-none cursor-pointer focus:ring-0 appearance-none pr-4"
+                            value={selectedDistrict}
+                            onChange={(e) => setSelectedDistrict(e.target.value)}
+                        >
+                            <option value="Tümü">Tüm Konya</option>
+                            {districts.map((d, i) => (
+                                <option key={i} value={d}>{d}</option>
+                            ))}
+                        </select>
+                        <svg className="w-4 h-4 text-slate-400 -ml-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom Panel: Legend */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] w-auto max-w-[90%] pointer-events-none">
+                <div className="bg-slate-900/90 backdrop-blur-2xl border border-slate-700/50 shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-3xl px-6 py-4 pointer-events-auto flex items-center gap-6 overflow-x-auto no-scrollbar scroll-smooth whitespace-nowrap">
+                    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 shrink-0">
+                        <div className="w-3.5 h-3.5 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+                        <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">Atanmamış</span>
+                    </div>
+                    
+                    <div className="h-4 w-[1px] bg-white/10 shrink-0"></div>
+
+                    {/* De-duplicate users by displayName/username for the legend */}
+                    {Array.from(new Set(users.filter(u => u.color).map(u => u.displayName || u.username))).map(name => {
+                        const user = users.find(u => (u.displayName || u.username) === name);
+                        return (
+                            <div key={user.id} className="flex items-center gap-2.5 group shrink-0 transition-all hover:scale-105">
+                                <div 
+                                    className="w-4 h-4 rounded-full border-2 border-white/20 shadow-lg transition-transform" 
+                                    style={{ backgroundColor: user.color }}
+                                ></div>
+                                <span className="text-xs font-bold text-white tracking-wide">{name}</span>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Assignment Modal */}

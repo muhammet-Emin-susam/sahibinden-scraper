@@ -16,7 +16,9 @@ import Trash from './pages/Trash';
 import Demands from './pages/Demands';
 import Settings from './pages/Settings';
 import Collections from './pages/Collections';
+import Feed from './pages/Feed';
 import Layout from './components/Layout';
+import Messages from './pages/Messages';
 
 const ProtectedRoute = ({ children }) => {
     const { token, loading } = useContext(AuthContext);
@@ -128,10 +130,26 @@ function App() {
                         }
                     />
                     <Route
+                        path="/sayfalar/akis"
+                        element={
+                            <ProtectedRoute>
+                                <Feed />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
                         path="/sayfalar/aktivite"
                         element={
                             <ProtectedRoute>
                                 <ActivityFeed />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/sayfalar/mesajlar"
+                        element={
+                            <ProtectedRoute>
+                                <Messages />
                             </ProtectedRoute>
                         }
                     />

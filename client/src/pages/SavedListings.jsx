@@ -1433,13 +1433,21 @@ function SavedListings() {
                                                                     onChange={(e) => setEditStatusValue(e.target.value)}
                                                                     autoFocus
                                                                 >
-                                                                    <option value="">Seçiniz</option>
+                                                                     <option value="">Seçiniz</option>
                                                                     <option value="Aranacak">Aranacak</option>
                                                                     <option value="Arandı">Arandı</option>
                                                                     <option value="Ulaşılamadı">Ulaşılamadı</option>
-                                                                    <option value="İlgilenmiyor">İlgilenmiyor</option>
+                                                                    <option value="Geri Dönüş Bekleniyor">Geri Dönüş Bekleniyor</option>
+                                                                    <option value="Müşteriyle Görüşüldü">Müşteriyle Görüşüldü</option>
                                                                     <option value="Randevu Alındı">Randevu Alındı</option>
+                                                                    <option value="Teklif Verildi">Teklif Verildi</option>
+                                                                    <option value="Kapora Alındı">Kapora Alındı</option>
                                                                     <option value="Satıldı">Satıldı</option>
+                                                                    <option value="Kiralandı">Kiralandı</option>
+                                                                     <option value="Sözleşme İmzalandı">Sözleşme İmzalandı</option>
+                                                                    <option value="Başka Emlakçıyla Çalışıyor">Başka Emlakçıyla Çalışıyor</option>
+                                                                    <option value="Vazgeçildi">Vazgeçildi</option>
+                                                                    <option value="İlgilenmiyor">İlgilenmiyor</option>
                                                                     <option value="İptal">İptal</option>
                                                                 </select>
                                                                 <button onClick={(e) => handleUpdateRecord(e, record.id, 'status')} className="text-green-600 hover:bg-green-50 p-1 rounded">
@@ -1454,11 +1462,19 @@ function SavedListings() {
                                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${record.status_tag === 'Aranacak' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
                                                                     record.status_tag === 'Arandı' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                                                                         record.status_tag === 'Ulaşılamadı' ? 'bg-gray-100 text-gray-800 border border-gray-200' :
-                                                                            record.status_tag === 'İlgilenmiyor' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
-                                                                                record.status_tag === 'Randevu Alındı' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                                                                                    record.status_tag === 'Satıldı' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
-                                                                                        record.status_tag === 'İptal' ? 'bg-red-100 text-red-800 border border-red-200' :
-                                                                                            'bg-gray-50 text-gray-600 border border-gray-200'
+                                                                            record.status_tag === 'Geri Dönüş Bekleniyor' ? 'bg-cyan-100 text-cyan-800 border border-cyan-200' :
+                                                                                record.status_tag === 'Müşteriyle Görüşüldü' ? 'bg-sky-100 text-sky-800 border border-sky-200' :
+                                                                                    record.status_tag === 'Randevu Alındı' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                                                                                        record.status_tag === 'Teklif Verildi' ? 'bg-violet-100 text-violet-800 border border-violet-200' :
+                                                                                            record.status_tag === 'Kapora Alındı' ? 'bg-lime-100 text-lime-800 border border-lime-200' :
+                                                                                                record.status_tag === 'Sözleşme İmzalandı' ? 'bg-teal-100 text-teal-800 border border-teal-200' :
+                                                                                                    record.status_tag === 'Başka Emlakçıyla Çalışıyor' ? 'bg-slate-100 text-slate-800 border border-slate-200' :
+                                                                                                        record.status_tag === 'Vazgeçildi' ? 'bg-zinc-100 text-zinc-800 border border-zinc-200' :
+                                                                                                            record.status_tag === 'Satıldı' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
+                                                                                                        record.status_tag === 'Kiralandı' ? 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200' :
+                                                                                                            record.status_tag === 'İlgilenmiyor' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
+                                                                                                                record.status_tag === 'İptal' ? 'bg-red-100 text-red-800 border border-red-200' :
+                                                                                                                    'bg-gray-50 text-gray-600 border border-gray-200'
                                                                     }`}>
                                                                     {record.status_tag || 'Durum Yok'}
                                                                 </span>

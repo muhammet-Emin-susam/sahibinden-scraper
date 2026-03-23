@@ -30,6 +30,8 @@ const {
 } = require("firebase/firestore");
 
 const app = express();
+app.use(cors());
+app.use(express.json());
 
 // Configure Multer for local storage (using /tmp for Vercel Serverless compatibility)
 const uploadsDir = process.env.NODE_ENV === 'production' ? '/tmp' : path.join(__dirname, 'uploads');
@@ -52,7 +54,7 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const SESSION_ID = Math.random().toString(36).substring(7).toUpperCase();
 
 console.log(`[SYSTEM] Starting server with SESSION_ID: ${SESSION_ID}`);
@@ -81,6 +83,7 @@ const DB_APPOINTMENTS = "appointments";
 const DB_DEMANDS = "demands";
 const DB_ARCHIVE_FOLDERS = "archive_folders";
 const DB_COLLECTIONS = "collections";
+const DB_MESSAGES = "messages";
 
 const JWT_SECRET = process.env.JWT_SECRET || 'sahibinden-scraper-super-secret-key-123!';
 
@@ -154,8 +157,6 @@ if (process.env.GEMINI_API_KEY) {
     console.error("WARNING: GEMINI_API_KEY is not defined in .env file!");
 }
 
-app.use(cors());
-app.use(express.json());
 app.use('/uploads', express.static(process.env.NODE_ENV === 'production' ? '/tmp' : path.join(__dirname, 'uploads')));
 
 // Global Exception Handlers
@@ -172,11 +173,13 @@ process.on('uncaughtException', (err) => {
 async function initializeAdminUser() {
     try {
         const usersRef = collection(db, DB_USERS);
-        const q = query(usersRef, where("role", "==", "admin"), limit(1));
-        const snapshot = await getDocs(q);
+        
+        // 1. Check if specific "admin" username exists
+        const qAdmin = query(usersRef, where("username", "==", "admin"), limit(1));
+        const adminSnapshot = await getDocs(qAdmin);
 
-        if (snapshot.empty) {
-            console.log("No admin user found. Creating default admin/admin...");
+        if (adminSnapshot.empty) {
+            console.log("[SYSTEM] No 'admin' user found. Creating default admin/admin...");
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash("admin", salt);
 
@@ -188,38 +191,73 @@ async function initializeAdminUser() {
                 role: "admin",
                 createdAt: new Date().toISOString()
             });
-            console.log("Default admin created successfully.");
+            console.log("[SYSTEM] Default admin created successfully.");
+        } else {
+            // 2. Proactively clean up ANY other "Sistem Yöneticisi" duplicates that aren't the primary one
+            const primaryAdminId = adminSnapshot.docs[0].id;
+            const qAllAdmins = query(usersRef, where("role", "==", "admin"));
+            const allAdminsSnapshot = await getDocs(qAllAdmins);
+            
+            if (allAdminsSnapshot.size > 1) {
+                console.log(`[SYSTEM] Found ${allAdminsSnapshot.size - 1} duplicate admin accounts. Cleaning up...`);
+                let deletedCount = 0;
+                for (const d of allAdminsSnapshot.docs) {
+                    // Delete if it's an admin role but NOT our primary "admin" username doc
+                    if (d.id !== primaryAdminId) {
+                        await deleteDoc(doc(db, DB_USERS, d.id));
+                        deletedCount++;
+                    }
+                }
+                if (deletedCount > 0) console.log(`[SYSTEM] Successfully cleaned up ${deletedCount} duplicate admin accounts.`);
+            }
         }
     } catch (err) {
-        console.error("Error initializing admin user:", err);
+        console.error("[SYSTEM] Error initializing/cleaning admin users:", err);
     }
 }
 initializeAdminUser();
 
 // JWT Middleware
+// JWT Middleware
 async function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
 
-    if (!token) return res.status(401).json({ success: false, error: 'Access denied. No token provided.' });
-
-    jwt.verify(token, JWT_SECRET, async (err, user) => {
-        if (err) return res.status(403).json({ success: false, error: 'Invalid token.' });
-
-        // Check user still exists in DB (handles deleted accounts)
-        try {
-            const userDoc = await getDoc(doc(db, DB_USERS, user.id));
-            if (!userDoc.exists()) {
-                return res.status(401).json({ success: false, error: 'USER_DELETED' });
-            }
-        } catch (dbErr) {
-            // If DB check fails, allow request to proceed (don't block on transient errors)
+        if (!token) {
+            console.log(`[AUTH] No token for ${req.method} ${req.url}`);
+            return res.status(401).json({ success: false, error: 'Access denied. No token provided.' });
         }
 
-        req.user = user;
-        console.log(`[REQUEST][SID:${SESSION_ID}] ${new Date().toISOString()} - ${req.method} ${req.url} (User: ${user.username})`);
-        next();
-    });
+        jwt.verify(token, JWT_SECRET, async (err, user) => {
+            if (err) {
+                console.log(`[AUTH] Invalid token for ${req.method} ${req.url}: ${err.message}`);
+                return res.status(403).json({ success: false, error: 'Invalid token.' });
+            }
+
+            if (!user || !user.id) {
+                console.log(`[AUTH] Token payload missing user ID`);
+                return res.status(403).json({ success: false, error: 'Invalid token payload.' });
+            }
+
+            try {
+                const userDoc = await getDoc(doc(db, DB_USERS, user.id));
+                if (!userDoc.exists()) {
+                    console.log(`[AUTH] User ${user.id} not found in DB`);
+                    return res.status(401).json({ success: false, error: 'USER_DELETED' });
+                }
+            } catch (dbErr) {
+                console.warn(`[AUTH] DB check error for user ${user.id}: ${dbErr.message}`);
+            }
+
+            req.user = user;
+            console.log(`[REQUEST][SID:${SESSION_ID}] ${new Date().toISOString()} - ${req.method} ${req.url} (User: ${user.username})`);
+            next();
+        });
+    } catch (globalAuthErr) {
+        console.error(`[AUTH] GLOBAL ERROR:`, globalAuthErr);
+        res.status(500).json({ success: false, error: 'Auth Middleware Error' });
+    }
 }
 
 // POST: Login route
@@ -505,20 +543,6 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
         await deleteDoc(docRef);
 
         res.json({ success: true, message: `Kullanıcı ve ${listingsSnap.size} ilanı silindi.` });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
-
-// Public Route: List users for map
-app.get('/api/users', authenticateToken, async (req, res) => {
-    try {
-        const snap = await getDocs(collection(db, DB_USERS));
-        const users = snap.docs.map(document => {
-            const d = document.data();
-            return { id: document.id, username: d.username, displayName: d.displayName, color: d.color, role: d.role };
-        });
-        res.json({ success: true, data: users });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -1426,9 +1450,13 @@ app.get('/api/demands', authenticateToken, async (req, res) => {
         const snap = await getDocs(demandsRef);
         let items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        // Only admins see all demands, others see their own
+        // Filter: Own demands, Public demands, or Direct shares to current user
         if (req.user.role !== 'admin') {
-            items = items.filter(i => i.userId === req.user.id);
+            items = items.filter(i => 
+                i.userId === req.user.id || 
+                i.shareType === 'public' || 
+                (i.shareType === 'direct' && i.sharedWithIds?.includes(req.user.id))
+            );
         }
 
         // Sort descending by creation date
@@ -1447,11 +1475,20 @@ app.get('/api/demands/:id', authenticateToken, async (req, res) => {
         const docRef = doc(db, DB_DEMANDS, id);
         const docSnap = await getDoc(docRef);
 
-        if (!docSnap.exists() || (req.user.role !== 'admin' && docSnap.data().userId !== req.user.id)) {
-            return res.status(403).json({ success: false, error: 'Unauthorized or not found' });
+        if (!docSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Talep bulunamadı' });
         }
 
-        res.json({ success: true, data: { id: docSnap.id, ...docSnap.data() } });
+        const demand = docSnap.data();
+        const isOwner = demand.userId === req.user.id;
+        const isPublic = demand.shareType === 'public';
+        const isDirectlyShared = demand.shareType === 'direct' && demand.sharedWithIds?.includes(req.user.id);
+
+        if (req.user.role !== 'admin' && !isOwner && !isPublic && !isDirectlyShared) {
+            return res.status(403).json({ success: false, error: 'Yetkisiz erişim' });
+        }
+
+        res.json({ success: true, data: { id: docSnap.id, ...demand } });
     } catch (err) {
         console.error("GET /api/demands/:id Error:", err);
         res.status(500).json({ success: false, error: err.message });
@@ -1506,6 +1543,227 @@ app.put('/api/demands/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// POST /api/demands/:id/share - Share a demand with others
+app.post('/api/demands/:id/share', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { shareType, sharedWithIds } = req.body; // shareType: 'public', 'direct', 'private'
+        
+        const docRef = doc(db, DB_DEMANDS, id);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists() || (req.user.role !== 'admin' && docSnap.data().userId !== req.user.id)) {
+            return res.status(403).json({ success: false, error: 'Yetkisiz işlem' });
+        }
+
+        await updateDoc(docRef, {
+            shareType: shareType || 'private',
+            sharedWithIds: sharedWithIds || [],
+            sharedAt: new Date().toISOString()
+        });
+
+        await logActivity({
+            listingId: id,
+            listingTitle: `Talep Paylaşımı (${shareType}): ${docSnap.data().clientName}`,
+            action: 'demand_shared',
+            by: req.user.displayName || req.user.username,
+            byId: req.user.id
+        });
+
+        res.json({ success: true, message: 'Talep başarıyla paylaşıldı' });
+    } catch (err) {
+        console.error("POST /api/demands/:id/share Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /api/feed - Get announcements of shared demands
+app.get('/api/feed', authenticateToken, async (req, res) => {
+    try {
+        const snap = await getDocs(collection(db, DB_DEMANDS));
+        let items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Filter: Public demands OR direct shares to current user (excluding own demands for feed)
+        items = items.filter(i => 
+            i.userId !== req.user.id && 
+            (i.shareType === 'public' || (i.shareType === 'direct' && i.sharedWithIds?.includes(req.user.id)))
+        );
+
+        // Sort by sharedAt or createdAt
+        items.sort((a, b) => new Date(b.sharedAt || b.createdAt) - new Date(a.sharedAt || a.createdAt));
+
+        res.json({ success: true, data: items });
+    } catch (err) {
+        console.error("GET /api/feed Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/messages - Send an in-app message regarding a demand
+app.post('/api/messages', authenticateToken, async (req, res) => {
+    try {
+        const { demandId, receiverId, text, receiverName, demandTitle, listingId, listingTitle, listingUrl } = req.body;
+        // Message logged only on error from here on
+        if (!demandId || !receiverId || !text) {
+            return res.status(400).json({ success: false, error: 'Eksik bilgi: Talep ID, alıcı ve mesaj zorunludur.' });
+        }
+
+        const newMessage = {
+            demandId,
+            demandTitle: demandTitle || 'Bir Talep',
+            senderId: req.user.id,
+            senderName: req.user.displayName || req.user.username,
+            receiverId,
+            receiverName: receiverName || 'Danışman',
+            listingId: listingId || null,
+            listingTitle: listingTitle || null,
+            listingUrl: listingUrl || null,
+            text,
+            createdAt: new Date().toISOString(),
+            read: false
+        };
+
+        const docRef = await addDoc(collection(db, DB_MESSAGES), newMessage);
+
+        res.json({ success: true, message: 'Mesaj gönderildi', data: { id: docRef.id, ...newMessage } });
+    } catch (err) {
+        console.error("POST /api/messages Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /api/messages/conversations - Get list of all conversations for current user
+app.get('/api/messages/conversations', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const snap = await getDocs(collection(db, DB_MESSAGES));
+        let allMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Filter and sort by date DESC
+        allMessages = allMessages.filter(m => m.senderId === userId || m.receiverId === userId);
+        allMessages.sort((a,b) => (new Date(b.createdAt || 0)) - (new Date(a.createdAt || 0)));
+
+        const conversationsMap = new Map();
+
+        allMessages.forEach(m => {
+            const senderId = m.senderId;
+            const receiverId = m.receiverId;
+            const demandId = m.demandId;
+
+            if (demandId && (senderId === userId || receiverId === userId)) {
+                const otherPartyId = senderId === userId ? receiverId : senderId;
+                if (!otherPartyId) return;
+
+                const otherPartyName = senderId === userId ? (m.receiverName || 'Danışman') : (m.senderName || 'Danışman');
+                const key = `${otherPartyId}_${demandId}`;
+
+                if (!conversationsMap.has(key)) {
+                    conversationsMap.set(key, {
+                        otherUserId: otherPartyId,
+                        otherUserName: otherPartyName,
+                        demandId: m.demandId,
+                        demandTitle: m.demandTitle || 'Bir Talep',
+                        listingId: m.listingId || null,
+                        listingTitle: m.listingTitle || null,
+                        lastMessage: m.text,
+                        lastMessageAt: m.createdAt,
+                        lastMessageTime: m.createdAt,
+                        unreadCount: (m.receiverId === userId && !m.read) ? 1 : 0
+                    });
+                } else {
+                    const conv = conversationsMap.get(key);
+                    if (m.receiverId === userId && !m.read) {
+                        conv.unreadCount++;
+                    }
+                    if (!conv.listingId && m.listingId) {
+                        conv.listingId = m.listingId;
+                        conv.listingTitle = m.listingTitle;
+                    }
+                }
+            }
+        });
+
+        res.json({ success: true, data: Array.from(conversationsMap.values()) });
+    } catch (err) {
+        console.error("Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /api/messages/:demandId - Get conversation for a specific demand
+app.get('/api/messages/:demandId', authenticateToken, async (req, res) => {
+    try {
+        const { demandId } = req.params;
+        const { otherUserId } = req.query;
+        const snap = await getDocs(collection(db, DB_MESSAGES));
+        
+        let messages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        // Filter by demandId in-memory to avoid index requirement
+        messages = messages.filter(m => m.demandId === demandId);
+        
+        // Sort in-memory to avoid index issues
+        messages.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+        // Filter: Current user must be involved
+        messages = messages.filter(m => m.senderId === req.user.id || m.receiverId === req.user.id);
+
+        // If otherUserId is provided, strictly filter for that conversation
+        if (otherUserId) {
+            messages = messages.filter(m => m.senderId === otherUserId || m.receiverId === otherUserId);
+        }
+
+        // Mark messages as read for this user (async, don't block response)
+        snap.docs.forEach(async (d) => {
+            const m = d.data();
+            if (m.receiverId === req.user.id && !m.read) {
+                // Also check otherUserId if provided
+                if (!otherUserId || m.senderId === otherUserId) {
+                    updateDoc(doc(db, DB_MESSAGES, d.id), { read: true }).catch(e => console.error("Mark as read error:", e));
+                }
+            }
+        });
+
+        res.json({ success: true, data: messages });
+    } catch (err) {
+        console.error("GET /api/messages/:demandId Error:", err);
+        console.error(err.stack);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/ping', (req, res) => {
+    res.json({ success: true, message: 'pong', time: new Date().toISOString() });
+});
+
+// GET /api/debug - Simple endpoint to check if server is reachable
+app.get('/api/debug', authenticateToken, (req, res) => {
+    res.json({ success: true, user: req.user, sessionId: SESSION_ID });
+});
+
+// GET /api/users - Get list of users for sharing (publicly available to authenticated users)
+app.get('/api/users', authenticateToken, async (req, res) => {
+    try {
+        const snap = await getDocs(collection(db, DB_USERS));
+        const users = snap.docs.map(doc => {
+            const d = doc.data();
+            const color = d.color || d.userColor || '#3b82f6';
+            return {
+                id: doc.id,
+                username: d.username,
+                displayName: d.displayName,
+                color: color,
+                userColor: color // Keep for backward compatibility if any
+            };
+        });
+        res.json({ success: true, data: users });
+    } catch (err) {
+        console.error("GET /api/users Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // DELETE /api/demands/:id
 app.delete('/api/demands/:id', authenticateToken, async (req, res) => {
     try {
@@ -1534,6 +1792,276 @@ app.delete('/api/demands/:id', authenticateToken, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+// GET /api/demands/:id/colleague-matches - Get matches from other advisors
+app.get('/api/demands/:id/colleague-matches', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const demandRef = doc(db, DB_DEMANDS, id);
+        const demandSnap = await getDoc(demandRef);
+
+        if (!demandSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Talep bulunamadı.' });
+        }
+
+        const demand = demandSnap.data();
+        // Check if shared or owner
+        const isOwner = demand.userId === req.user.id;
+        const isPublic = demand.shareType === 'public';
+        const isDirect = demand.shareType === 'direct' && demand.sharedWithIds?.includes(req.user.id);
+
+        if (req.user.role !== 'admin' && !isOwner && !isPublic && !isDirect) {
+            return res.status(403).json({ success: false, error: 'Yetkisiz erişim.' });
+        }
+
+        const matchedIds = (demand.matchedListings || []).map(l => l.listingId);
+
+        // Fetch all active records belonging to OTHER users
+        const recordsRef = collection(db, DB_COLLECTION);
+        const recordsSnap = await getDocs(recordsRef);
+        
+        const matches = [];
+
+        recordsSnap.forEach(docSnap => {
+            const record = { id: docSnap.id, ...docSnap.data() };
+            
+            // Filter: Active, not already matched, belongs to a COLLEAGUE (other advisor)
+            if (record.status !== 'approved' || matchedIds.includes(record.id) || !record.userId || record.userId === demand.userId) return;
+            
+            // Matching Logic (Simplistic but effective version of suggestions logic)
+            // usually you'd want at least transactionType and category to match
+            const recTransaction = record.mainCategory || ''; 
+            const recType = record.subCategory || '';
+
+            if (demand.transactionType && !recTransaction.includes(demand.transactionType)) return;
+            if (demand.demandType && recType && !recType.includes(demand.demandType) && !demand.demandType.includes(recType)) return;
+
+            // Location check
+            const recLocation = String(record.location || '').toLowerCase();
+            const demandNeighborhoods = (demand.details?.selectedNeighborhoods || []).map(n => n.toLowerCase());
+            
+            let locationMatch = false;
+            if (demandNeighborhoods.length === 0) locationMatch = true; // No filter = all match
+            else {
+                locationMatch = demandNeighborhoods.some(n => recLocation.includes(n));
+            }
+
+            if (!locationMatch) return;
+
+            // Price check (+/- 300k margin)
+            let recPrice = parseInt(String(record.price || '').replace(/[^0-9]/g, ''), 10) || 0;
+            let demandMaxPrice = parseInt(demand.details?.maxPrice, 10) || 0;
+            if (demandMaxPrice > 0 && recPrice > 0) {
+                const margin = demand.transactionType === 'Satılık' ? 300000 : demandMaxPrice * 0.2;
+                if (recPrice > demandMaxPrice + margin || recPrice < demandMaxPrice - margin) return;
+            }
+
+            matches.push(record);
+        });
+
+        // Limit matches for performance
+        res.json({ success: true, data: matches.slice(0, 50) });
+    } catch (err) {
+        console.error("GET /api/demands/:id/colleague-matches Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+// GET /api/demands/:id/suggestions - Get AI suggestions for a demand
+app.get('/api/demands/:id/suggestions', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const demandRef = doc(db, DB_DEMANDS, id);
+        const demandSnap = await getDoc(demandRef);
+
+        if (!demandSnap.exists() || (req.user.role !== 'admin' && demandSnap.data().userId !== req.user.id)) {
+            return res.status(403).json({ success: false, error: 'Talep bulunamadı veya yetkisiz.' });
+        }
+
+        const demand = demandSnap.data();
+        const matchedIds = (demand.matchedListings || []).map(l => l.listingId);
+
+        // Fetch all active records (excluding deleted if possible, but Firestore '!=' requires an index, 
+        // so we'll fetch all and filter in memory to avoid index creation issues right now)
+        const recordsRef = collection(db, DB_COLLECTION);
+        const recordsSnap = await getDocs(recordsRef);
+        
+        const suggestions = [];
+
+        recordsSnap.forEach(docSnap => {
+            const record = { id: docSnap.id, ...docSnap.data() };
+            
+            // Skip deleted and already matched listings
+            if (record.status === 'deleted' || matchedIds.includes(record.id)) return;
+            
+            let score = 0;
+            let matchDetails = [];
+
+            // 1. Base Criteria: Transaction Type (Satılık/Kiralık) and Category (Konut/Arsa/Ticari)
+            const recTransaction = record.mainCategory || ''; // usually Satılık/Kiralık
+            const recType = record.subCategory || ''; // usually Konut/Arsa/Ticari/vb.
+
+            if (demand.transactionType && !recTransaction.includes(demand.transactionType)) {
+                return; // Must match transaction type completely
+            }
+
+            if (demand.demandType && recType) {
+                if (recType.includes(demand.demandType) || demand.demandType.includes(recType)) {
+                    score += 10; // Base score for category match
+                    matchDetails.push({ text: 'Kategori Uygun', pts: 10 });
+                } else {
+                    return; // e.g. looking for Arsa, but record is Konut
+                }
+            } else {
+                score += 5; // Base score if category is unclear but transaction type matched
+            }
+
+            // 2. Price Scoring (Max 30 pts)
+            let recPriceStr = String(record.price || '').replace(/[^0-9]/g, '');
+            let recPrice = parseInt(recPriceStr, 10) || 0;
+            let demandMaxPrice = parseInt(demand.details?.maxPrice, 10) || 0;
+
+            if (demandMaxPrice > 0 && recPrice > 0) {
+                // Determine acceptable margin (user specifically requested +/- 300k for sales)
+                let margin = demandMaxPrice * 0.15; // Default 15% for rentals or unknown
+                if (demand.transactionType === 'Satılık' || demandMaxPrice > 500000) {
+                    margin = 300000; // Fixed +/- 300,000 TL for sales/high value
+                }
+                
+                const minAcceptablePrice = demandMaxPrice - margin;
+                const maxAcceptablePrice = demandMaxPrice + margin;
+
+                if (recPrice < minAcceptablePrice || recPrice > maxAcceptablePrice) {
+                    return; // Outside the strict margin, completely ignore
+                }
+
+                if (recPrice <= demandMaxPrice) {
+                    score += 30;
+                    matchDetails.push({ text: 'Fiyat Uygun', pts: 30 });
+                } else {
+                    score += 10; // It's above max budget but within +300k
+                    matchDetails.push({ text: 'Bütçeye Yakın', pts: 10 });
+                }
+            }
+
+            // 3. Location Scoring (Max 40 pts)
+            // Demand locations: [{city: "İstanbul", district: "Kadıköy", neighborhoods: ["Kozyatağı Mah", ...]}, ...]
+            // Record location string: "İstanbul / Kadıköy / Kozyatağı"
+            const recLocation = String(record.location || '').toLowerCase();
+            let locationMatched = false;
+
+            if (demand.locations && demand.locations.length > 0) {
+                for (const loc of demand.locations) {
+                    const c = (loc.city || '').toLowerCase();
+                    const d = (loc.district || '').toLowerCase();
+                    
+                    if (recLocation.includes(c) && recLocation.includes(d)) {
+                        // District match at least
+                        if (loc.neighborhoods && loc.neighborhoods.length > 0) {
+                            // Check neighborhoods
+                            const hasMahalleMatch = loc.neighborhoods.some(n => {
+                                const cleanN = n.toLowerCase().replace(' mah.', '').replace(' mah', '').trim();
+                                return recLocation.includes(cleanN);
+                            });
+                            
+                            if (hasMahalleMatch) {
+                                score += 40;
+                                matchDetails.push({ text: 'Tam Konum Eşleşmesi (Mahalle)', pts: 40 });
+                                locationMatched = true;
+                                break;
+                            } else {
+                                score += 20; // Only district matched, neighborhood didn't
+                                matchDetails.push({ text: 'İlçe Eşleşmesi', pts: 20 });
+                                locationMatched = true;
+                                break;
+                            }
+                        } else {
+                            // No neighborhood specified in demand, so district match is perfect
+                            score += 40;
+                            matchDetails.push({ text: 'Konum Eşleşmesi (İlçe)', pts: 40 });
+                            locationMatched = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // If demand has locations but this record matches NONE of them, filter it out.
+                if (!locationMatched) return;
+            }
+
+            // 4. Room Matching (Strict Filtering + 20 pts)
+            const demandRooms = String(demand.details?.rooms || '').trim().toLowerCase();
+            const recRooms = String(record.properties?.['Oda Sayısı'] || '').trim().toLowerCase();
+            
+            if (demandRooms) {
+                // If a room count is specified, and the record has a room count, enforce EXACT match.
+                if (recRooms) {
+                    if (demandRooms !== recRooms) {
+                        return; // strict exact match required
+                    } else {
+                        score += 20;
+                        matchDetails.push({ text: 'Oda Sayısı Tam Eşleşme', pts: 20 });
+                    }
+                } else {
+                    // Record missing room count, penalize but keep maybe? Or filter?
+                    // User asked for STRICKTER filtering. We'll filter out if missing and looking for Konut.
+                    if (demand.demandType === 'Konut') return; 
+                }
+            }
+
+            // 5. Square Meters matching for Ticari/Arsa (Floor constraint)
+            const demandM2 = parseInt(demand.details?.squareMeters, 10) || 0;
+            // Emlakjet/Sahibinden properties usually have 'Metrekare (Brüt)' or 'Metrekare'
+            const recM2Str = String(record.properties?.['Metrekare (Brüt)'] || record.properties?.['Metrekare'] || '').replace(/[^0-9]/g, '');
+            const recM2 = parseInt(recM2Str, 10) || 0;
+
+            if (demandM2 > 0) {
+                if (recM2 > 0) {
+                    if (recM2 < demandM2) {
+                        return; // strictly smaller than requested minimum, filter out
+                    } else {
+                        score += 15;
+                        matchDetails.push({ text: 'm² Uygun', pts: 15 });
+                    }
+                } else {
+                    if (demand.demandType === 'Ticari' || demand.demandType === 'Arsa') return; // Filter out if m2 is missing for commercial/land
+                }
+            }
+
+            // Suggest items with a score > 0
+            if (score > 0) {
+                suggestions.push({
+                    listingId: record.id,
+                    title: record.title,
+                    price: record.price,
+                    location: record.location,
+                    images: record.images || [],
+                    mainCategory: record.mainCategory,
+                    subCategory: record.subCategory,
+                    status_tag: record.status_tag,
+                    status: record.status, // pending, approved, archived
+                    sellerName: record.sellerName,
+                    officeName: record.officeName,
+                    officeLogo: record.officeLogo,
+                    isOffice: record.isOffice,
+                    ilanNo: record.properties?.['İlan No'] || '',
+                    score: score,
+                    matchDetails: matchDetails
+                });
+            }
+        });
+
+        // Sort by score descending
+        suggestions.sort((a, b) => b.score - a.score);
+
+        // Return top 15 suggestions
+        res.json({ success: true, data: suggestions.slice(0, 15) });
+
+    } catch (err) {
+        console.error("GET /api/demands/:id/suggestions Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 
 // POST /api/demands/:id/match - Add a listing to a demand
 app.post('/api/demands/:id/match', authenticateToken, async (req, res) => {
@@ -1671,14 +2199,11 @@ app.post('/api/ai/analyze/:id', authenticateToken, async (req, res) => {
         User-Agent: ${req.headers['user-agent']}
     `);
 
-    console.log(`[DEBUG] AI route started for ID: ${id}`);
     try {
         const docRef = doc(db, DB_COLLECTION, id);
-        console.log(`[DEBUG] Fetching document from Firestore...`);
         const docSnap = await getDoc(docRef);
 
         if (!docSnap.exists()) {
-            console.warn(`[DEBUG] Document not found: ${id}`);
             return res.status(404).json({ success: false, error: 'Listing not found.' });
         }
 
@@ -2091,6 +2616,12 @@ app.get('/api/announcements', authenticateToken, async (req, res) => {
 });
 // Export the Express API for Vercel Serverless Functions
 module.exports = app;
+
+// Global Catch-all Error Handler
+app.use((err, req, res, next) => {
+    console.error('[GLOBAL ERROR HANDLER]', err);
+    res.status(500).json({ success: false, error: err.message || 'Interal Server Error' });
+});
 
 // Only listen locally if not running on Vercel
 if (process.env.NODE_ENV !== 'production') {

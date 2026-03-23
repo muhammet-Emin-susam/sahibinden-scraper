@@ -83,94 +83,142 @@ function ActivityFeed() {
     }, {});
 
     return (
-        <div className="animate-fade-in-up pb-10">
-            <div className="flex items-center justify-between mb-8">
+        <div className="animate-fade-in-up pb-10 max-w-5xl mx-auto px-4 sm:px-6">
+            {/* Header section with floating feel */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-6 pt-4">
                 <div>
-                    <h2 className="text-3xl font-black text-gray-900 tracking-tight mb-2">Aktivite Geçmişi</h2>
-                    <p className="text-gray-500 font-medium">
-                        {user?.role === 'admin' ? 'Tüm kullanıcıların sistem üzerindeki geçmiş işlemleri.' : 'Kendi yaptığınız son işlemler ve değişiklikler.'}
+                    <h2 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-2 flex items-center gap-3">
+                        <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        Aktivite Geçmişi
+                    </h2>
+                    <p className="text-slate-500 font-medium text-lg max-w-2xl leading-relaxed">
+                        {user?.role === 'admin' 
+                            ? 'Tüm kullanıcıların sistem üzerindeki geçmiş işlemleri ve güncel aktivite akışı.' 
+                            : 'Kendi yaptığınız son işlemler ve sistem üzerindeki değişikliklerinizin özeti.'}
                     </p>
                 </div>
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-20">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                <div className="flex flex-col items-center justify-center py-32 space-y-4">
+                    <div className="relative w-16 h-16">
+                        <div className="absolute top-0 left-0 w-full h-full border-4 border-indigo-100 rounded-full"></div>
+                        <div className="absolute top-0 left-0 w-full h-full border-4 border-indigo-600 rounded-full animate-spin border-t-transparent"></div>
+                    </div>
+                    <span className="text-slate-400 font-bold tracking-widest uppercase text-xs">Yükleniyor...</span>
                 </div>
             ) : Object.keys(groupedLogs).length === 0 ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center">
-                    <div className="text-gray-300 mb-4 inline-block bg-gray-50 p-6 rounded-full">
-                        <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-white p-20 text-center">
+                    <div className="text-slate-300 mb-6 inline-flex bg-slate-50 w-24 h-24 items-center justify-center rounded-3xl shadow-inner">
+                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Henüz Aktivite Yok</h3>
-                    <p className="text-gray-500">Sistemde kayıtlı herhangi bir işlem geçmişi bulunmuyor.</p>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-3">Henüz Aktivite Yok</h3>
+                    <p className="text-slate-500 max-w-sm mx-auto font-medium">Sistemde henüz kayıtlı herhangi bir işlem geçmişi bulunmuyor.</p>
                 </div>
             ) : (
-                <div className="space-y-10 border-l-2 border-indigo-100 ml-4 pl-8 py-2 relative">
-                    {Object.entries(groupedLogs).map(([date, dayLogs], idx) => (
-                        <div key={date} className="relative">
-                            <div className="absolute -left-11 mt-1.5 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center border-4 border-gray-50 shadow-sm">
-                                <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full"></span>
-                            </div>
-                            <h3 className="text-sm font-black text-indigo-600 uppercase tracking-widest mb-6 bg-indigo-50 inline-block px-4 py-1.5 rounded-full shadow-sm border border-indigo-100/50">
-                                {date}
-                            </h3>
+                <div className="relative">
+                    {/* Continuous vertical line for the timeline */}
+                    <div className="absolute left-[23px] top-6 bottom-6 w-[2px] bg-gradient-to-b from-indigo-100 via-indigo-50 to-transparent md:left-[23px]"></div>
 
-                            <div className="space-y-5">
-                                {dayLogs.map((log) => {
-                                    const { icon, text, color } = actionLabel(log.action);
-                                    return (
-                                        <div key={log.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all flex flex-col md:flex-row gap-4 items-start md:items-center">
+                    <div className="space-y-16">
+                        {Object.entries(groupedLogs).map(([date, dayLogs], idx) => (
+                            <div key={date} className="relative">
+                                {/* Date indicator with glass background */}
+                                <div className="sticky top-6 z-20 mb-8 ml-0 md:ml-0 flex items-center">
+                                    <div className="w-12 h-12 bg-white border-4 border-slate-50 rounded-full flex items-center justify-center shadow-md shadow-indigo-100/50 z-10 shrink-0">
+                                        <div className="w-2.5 h-2.5 bg-indigo-600 rounded-full animate-pulse"></div>
+                                    </div>
+                                    <div className="ml-6 flex items-center">
+                                        <div className="bg-indigo-600/10 backdrop-blur-md border border-indigo-200/50 px-5 py-2 rounded-2xl shadow-sm">
+                                            <span className="text-sm font-black text-indigo-700 uppercase tracking-[0.2em]">
+                                                {date}
+                                            </span>
+                                        </div>
+                                        <div className="ml-3 h-[1px] w-24 bg-gradient-to-r from-indigo-100 to-transparent hidden sm:block"></div>
+                                    </div>
+                                </div>
 
-                                            <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                <div className="w-10 h-10 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 text-gray-600 font-bold text-sm shadow-inner">
-                                                    {log.by ? log.by[0].toUpperCase() : 'S'}
+                                <div className="space-y-6 ml-6 md:ml-6 pl-12 border-l-0">
+                                    {dayLogs.map((log) => {
+                                        const { icon, text, color } = actionLabel(log.action);
+                                        return (
+                                            <div 
+                                                key={log.id} 
+                                                className="group relative bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-indigo-100/50 hover:-translate-y-1 hover:border-indigo-100 transition-all duration-500 flex flex-col sm:flex-row gap-6 items-start"
+                                            >
+                                                {/* Action Icon on the card */}
+                                                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shadow-inner group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-colors duration-500">
+                                                    {icon}
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                                                        <span>{log.by}</span>
-                                                        <span className="text-gray-300">•</span>
-                                                        <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-md border ${color}`}>
-                                                            {icon} {text}
-                                                        </span>
-                                                    </p>
-                                                    <div className="text-sm text-gray-600 flex flex-wrap items-center gap-2">
-                                                        {log.action === 'listing_deleted' || log.action === 'hard_deleted' ? (
-                                                            <span className="font-semibold text-gray-800 line-through decoration-red-400">{log.listingTitle || 'İsimsiz İlan'}</span>
-                                                        ) : (
-                                                            <Link to="/sayfalar/kaydedilenler" state={{ expandRecordId: log.listingId }} className="font-semibold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1">
-                                                                {log.listingTitle || 'İsimsiz İlan'}
-                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                                            </Link>
-                                                        )}
-                                                        <span className="text-gray-400 font-medium">üzerinde işlem yaptı.</span>
+
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex -space-x-2">
+                                                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-blue-400 border-2 border-white flex items-center justify-center text-white font-black text-[10px] shadow-sm">
+                                                                    {log.by ? log.by[0].toUpperCase() : 'S'}
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-sm font-bold text-slate-800 tracking-tight">{log.by}</span>
+                                                            <span className="text-slate-300">•</span>
+                                                            <span className={`text-[9px] uppercase font-black px-2.5 py-1 rounded-lg border shadow-sm ${color} group-hover:shadow-indigo-100 transition-all`}>
+                                                                {text}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 text-[10px] font-bold group-hover:bg-indigo-50 group-hover:border-indigo-100 group-hover:text-indigo-600 transition-all">
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                            {new Date(log.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mb-4">
+                                                        <div className="flex items-start gap-2 text-[15px] text-slate-600 font-medium leading-relaxed overflow-hidden">
+                                                            {log.action === 'listing_deleted' || log.action === 'hard_deleted' ? (
+                                                                <span className="font-extrabold text-slate-900 line-through decoration-red-400 decoration-2 decoration-slice">{log.listingTitle || 'İsimsiz İlan'}</span>
+                                                            ) : (
+                                                                <Link 
+                                                                    to="/sayfalar/kaydedilenler" 
+                                                                    state={{ expandRecordId: log.listingId }} 
+                                                                    className="font-extrabold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-2 group/link"
+                                                                >
+                                                                    <span className="relative">
+                                                                        {log.listingTitle || 'İsimsiz İlan'}
+                                                                        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-indigo-500 group-hover/link:w-full transition-all duration-300"></span>
+                                                                    </span>
+                                                                    <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center opacity-0 group-hover/link:opacity-100 transform translate-x-1 group-hover/link:translate-x-0 transition-all">
+                                                                        <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                                    </div>
+                                                                </Link>
+                                                            )}
+                                                            <span className="text-slate-400 font-semibold opacity-70">üzerinde işlem yaptı.</span>
+                                                        </div>
                                                     </div>
 
                                                     {log.from !== null && log.to !== null && String(log.from) !== String(log.to) && (
-                                                        <div className="mt-3 bg-gray-50 border border-gray-100 rounded-lg p-3 inline-flex flex-wrap items-center gap-3 text-sm">
-                                                            <span className="line-through text-gray-400 max-w-xs truncate" title={String(log.from || '(boş)')}>
-                                                                {translateStatus(log.from)}
-                                                            </span>
-                                                            <svg className="w-4 h-4 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                                                            <span className="font-semibold text-gray-700 max-w-xs break-words">
-                                                                {translateStatus(log.to)}
-                                                            </span>
+                                                        <div className="bg-slate-50/50 border border-slate-100 rounded-2xl p-4 flex flex-wrap items-center gap-4 group-hover:bg-indigo-50/30 group-hover:border-indigo-100/50 transition-colors duration-500">
+                                                            <div className="flex items-center gap-2.5">
+                                                                <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-[10px] text-slate-400 font-bold border border-slate-100 line-through">
+                                                                    {translateStatus(log.from)}
+                                                                </div>
+                                                                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                                                                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                                                                </div>
+                                                                <div className="px-4 py-1.5 rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-100 text-[11px] font-black tracking-wide border border-indigo-500">
+                                                                    {translateStatus(log.to)}
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-
-                                            <div className="text-xs text-gray-400 font-bold tracking-wide whitespace-nowrap bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 flex-shrink-0 flex items-center gap-1.5 md:ml-auto">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                {new Date(log.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

@@ -3,56 +3,20 @@ import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 
 const EfdalAILink = ({ location, isExpanded }) => {
-    const linkRef = useRef(null);
-
-    const handleMouseMove = (e) => {
-        if (!linkRef.current) return;
-        const rect = linkRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        linkRef.current.style.setProperty('--mouse-x', `${x}px`);
-        linkRef.current.style.setProperty('--mouse-y', `${y}px`);
-    };
-
+    const active = location.pathname === '/efdal-ai';
     return (
-        <Link
-            ref={linkRef}
-            to="/efdal-ai"
+        <Link 
+            to="/efdal-ai" 
+            className={`group relative flex items-center transition-all ${isExpanded ? 'py-2.5 px-4 gap-3 rounded-xl' : 'w-11 h-11 mx-auto justify-center rounded-[14px]'} ${active ? 'bg-purple-50 text-purple-600 font-bold shadow-sm' : 'text-gray-600 hover:bg-purple-50 hover:text-purple-600 font-medium'}`} 
             title={!isExpanded ? "EfdalAI Akıllı Asistan" : undefined}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => {
-                if (linkRef.current) {
-                    linkRef.current.style.setProperty('--mouse-x', `-100px`);
-                    linkRef.current.style.setProperty('--mouse-y', `-100px`);
-                }
-            }}
-            className={`group relative flex items-center transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${location.pathname === '/efdal-ai' ? 'ring-2 ring-indigo-500 ring-offset-2' : ''} ${isExpanded ? 'gap-3 py-3 px-4 min-h-[64px] rounded-2xl' : 'flex-col justify-center px-0 py-0 w-11 h-24 rounded-full mx-auto shadow-sm'}`}
-            style={{ transform: 'translateZ(0)' }}
         >
-            <div className={`absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 opacity-90 group-hover:opacity-100 transition-opacity duration-300 ${isExpanded ? 'rounded-2xl' : 'rounded-full'}`}></div>
-
-            {/* Glowing circle following mouse */}
-            <div
-                className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none mix-blend-screen ${isExpanded ? 'rounded-2xl' : 'rounded-full'}`}
-                style={{
-                    background: 'radial-gradient(circle 80px at var(--mouse-x, -100px) var(--mouse-y, -100px), rgba(255,255,255,0.4), transparent 80%)'
-                }}
-            />
-
-            {/* subtle dotted pattern overlay */}
-            <div className={`absolute inset-0 opacity-10 ${isExpanded ? 'rounded-2xl' : 'rounded-full'}`} style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '12px 12px' }}></div>
-
-            {/* Icon Container */}
-            <div className={`relative z-10 flex items-center justify-center flex-shrink-0 transition-transform duration-300 ${isExpanded ? 'w-11 h-11 rounded-xl bg-white/20 shadow-inner backdrop-blur-md group-hover:scale-110' : 'w-full h-full group-hover:-translate-y-1'}`}>
-                <svg className="w-6 h-6 text-white drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-            </div>
-
-            {/* Text Content */}
+            <svg className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${!isExpanded && 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
             {isExpanded && (
-                <div className="relative z-10 flex flex-col justify-center min-w-0">
-                    <h3 className="font-black text-white text-[16px] tracking-tight leading-none drop-shadow-sm mb-1 text-shadow-sm">EfdalAI</h3>
-                    <p className="text-[10px] font-bold text-white uppercase tracking-[0.15em] leading-none truncate opacity-90 transition-opacity">Akıllı Asistan</p>
-                </div>
+                <span className="whitespace-nowrap flex-1 truncate transition-all duration-300">
+                    EfdalAI
+                </span>
             )}
         </Link>
     );
@@ -63,6 +27,7 @@ const Layout = ({ children }) => {
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
     const [notification, setNotification] = useState(null);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [messageUnreadCount, setMessageUnreadCount] = useState(0);
     const [showSettings, setShowSettings] = useState(false);
     const settingsRef = useRef(null);
     const location = useLocation();
@@ -215,8 +180,27 @@ const Layout = ({ children }) => {
             }
         };
 
+        const checkMessages = async () => {
+            try {
+                const response = await fetch('/api/messages/conversations', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const totalUnread = data.data.reduce((acc, conv) => acc + (conv.unreadCount || 0), 0);
+                    setMessageUnreadCount(totalUnread);
+                }
+            } catch (err) {
+                console.error('Message poll error:', err);
+            }
+        };
+
         checkAnnouncements();
-        const interval = setInterval(checkAnnouncements, 10000);
+        checkMessages();
+        const interval = setInterval(() => {
+            checkAnnouncements();
+            checkMessages();
+        }, 10000);
         return () => clearInterval(interval);
     }, [token, user]);
 
@@ -271,7 +255,9 @@ const Layout = ({ children }) => {
                     {user?.role !== 'admin' && (
                         <>
                             {renderMenuItem('/sayfalar/talepler', 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', 'Müşteri Talepleri')}
+                            {renderMenuItem('/sayfalar/mesajlar', 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', 'Mesajlar', messageUnreadCount)}
                             {renderMenuItem('/sayfalar/randevular', 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', 'Randevular')}
+                            {renderMenuItem('/sayfalar/akis', 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z', 'Talep Akışı')}
                         </>
                     )}
 
@@ -282,9 +268,7 @@ const Layout = ({ children }) => {
                     {renderMenuItem('/sayfalar/duyurular', 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', 'Duyurular', unreadCount)}
 
                     <style>{pulseStyle}</style>
-                    <div className="mt-4 mb-2 flex justify-center">
-                        <EfdalAILink location={location} isExpanded={isSidebarExpanded} />
-                    </div>
+                    <EfdalAILink location={location} isExpanded={isSidebarExpanded} />
 
                     {user?.role === 'admin' && (
                         <>
