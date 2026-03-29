@@ -1,6 +1,8 @@
 import { useContext, useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../config';
+
 
 const EfdalAILink = ({ location, isExpanded }) => {
     const active = location.pathname === '/efdal-ai';
@@ -141,7 +143,7 @@ const Layout = ({ children }) => {
 
         const checkAnnouncements = async () => {
             try {
-                const response = await fetch('/api/announcements', {
+                const response = await fetch(`${API_BASE_URL}/announcements`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
@@ -182,7 +184,7 @@ const Layout = ({ children }) => {
 
         const checkMessages = async () => {
             try {
-                const response = await fetch('/api/messages/conversations', {
+                const response = await fetch(`${API_BASE_URL}/messages/conversations`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();

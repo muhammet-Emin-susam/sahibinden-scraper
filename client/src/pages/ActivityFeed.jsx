@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
+
 
 function ActivityFeed() {
     const [logs, setLogs] = useState([]);
@@ -11,7 +13,7 @@ function ActivityFeed() {
         const fetchActivity = async () => {
             if (!token) return;
             try {
-                const response = await fetch('/api/activity', {
+                const response = await fetch(`${API_BASE_URL}/activity`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await response.json();

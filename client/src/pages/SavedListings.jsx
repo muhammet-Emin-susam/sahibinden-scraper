@@ -5,6 +5,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { tr } from 'date-fns/locale';
+import { API_BASE_URL } from '../config';
+
 
 function SavedListings() {
     const [savedRecords, setSavedRecords] = useState([]);
@@ -94,7 +96,7 @@ function SavedListings() {
     const fetchRecords = async () => {
         if (!token) return;
         try {
-            const response = await fetch('/api/records', {
+            const response = await fetch(`${API_BASE_URL}/records`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -115,7 +117,7 @@ function SavedListings() {
 
     const togglePortfolio = async (id, currentStatus) => {
         try {
-            const res = await fetch(`/api/records/${id}/portfolio`, {
+            const res = await fetch(`${API_BASE_URL}/records/${id}/portfolio`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -135,7 +137,7 @@ function SavedListings() {
     const fetchArchiveFolders = async () => {
         if (!token) return;
         try {
-            const response = await fetch('/api/archive-folders', {
+            const response = await fetch(`${API_BASE_URL}/archive-folders`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await response.json();
@@ -150,7 +152,7 @@ function SavedListings() {
     const fetchCollections = async () => {
         if (!token) return;
         try {
-            const response = await fetch('/api/collections', {
+            const response = await fetch(`${API_BASE_URL}/collections`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await response.json();
@@ -164,7 +166,7 @@ function SavedListings() {
 
     const fetchDemands = async () => {
         try {
-            const res = await fetch(`/api/demands`, {
+            const res = await fetch(`${API_BASE_URL}/demands`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -188,7 +190,7 @@ function SavedListings() {
         e.stopPropagation();
 
         try {
-            await fetch(`/api/records/${id}`, {
+            await fetch(`${API_BASE_URL}/records/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -208,7 +210,7 @@ function SavedListings() {
         try {
             const bodyData = isNote ? { note: value } : { status_tag: value };
 
-            const response = await fetch(`/api/records/${id}/update`, {
+            const response = await fetch(`${API_BASE_URL}/records/${id}/update`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -261,7 +263,7 @@ function SavedListings() {
         // If creating a new folder
         if (isCreatingFolder && newFolderName.trim()) {
             try {
-                const folderRes = await fetch('/api/archive-folders', {
+                const folderRes = await fetch(`${API_BASE_URL}/archive-folders`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -286,7 +288,7 @@ function SavedListings() {
         }
 
         try {
-            const response = await fetch(`/api/records/${recordToArchive.id}/archive`, {
+            const response = await fetch(`${API_BASE_URL}/records/${recordToArchive.id}/archive`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -325,7 +327,7 @@ function SavedListings() {
     const handleCreateCollection = async () => {
         if (!newCollectionName.trim()) return;
         try {
-            const res = await fetch('/api/collections', {
+            const res = await fetch(`${API_BASE_URL}/collections`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -350,7 +352,7 @@ function SavedListings() {
         setCollectingId(recordToCollect.id);
 
         try {
-            const response = await fetch(`/api/records/${recordToCollect.id}/collections`, {
+            const response = await fetch(`${API_BASE_URL}/records/${recordToCollect.id}/collections`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -392,7 +394,7 @@ function SavedListings() {
                 }
             };
 
-            const res = await fetch(`/api/demands/${demandId}/match`, {
+            const res = await fetch(`${API_BASE_URL}/demands/${demandId}/match`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -422,7 +424,7 @@ function SavedListings() {
         // Fetch activity when opening
         if (newId && !activityLogs[newId]) {
             try {
-                const res = await fetch(`/api/records/${newId}/activity`, {
+                const res = await fetch(`${API_BASE_URL}/records/${newId}/activity`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();

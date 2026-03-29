@@ -1,6 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
+import { API_BASE_URL } from '../config';
+
 
 function EfdalAI() {
     const { token, user } = useContext(AuthContext);
@@ -63,7 +65,7 @@ function EfdalAI() {
 
     const fetchRecords = async () => {
         try {
-            const response = await fetch(`/api/records`, {
+            const response = await fetch(`${API_BASE_URL}/records`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -82,7 +84,7 @@ function EfdalAI() {
     const fetchProvinces = async () => {
         setTkgmLoading(true);
         try {
-            const res = await fetch(`/api/tkgm/provinces`, {
+            const res = await fetch(`${API_BASE_URL}/tkgm/provinces`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -119,7 +121,7 @@ function EfdalAI() {
         if (!id) return;
         setTkgmLoading(true);
         try {
-            const res = await fetch(`/api/tkgm/districts/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/tkgm/districts/${id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -141,7 +143,7 @@ function EfdalAI() {
         if (!id) return;
         setTkgmLoading(true);
         try {
-            const res = await fetch(`/api/tkgm/neighborhoods/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/tkgm/neighborhoods/${id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -197,7 +199,7 @@ function EfdalAI() {
 
             // 2. Resolve District
             if (pId && !dId && distNameText) {
-                const res = await fetch(`/api/tkgm/districts/${pId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const res = await fetch(`${API_BASE_URL}/tkgm/districts/${pId}`, { headers: { 'Authorization': `Bearer ${token}` } });
                 let textData = await res.text();
                 textData = textData.replace(/^\uFEFF/, '');
                 const data = JSON.parse(textData);
@@ -216,7 +218,7 @@ function EfdalAI() {
 
             // 3. Resolve Neighborhood
             if (dId && !nId && neighNameText) {
-                const res = await fetch(`/api/tkgm/neighborhoods/${dId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const res = await fetch(`${API_BASE_URL}/tkgm/neighborhoods/${dId}`, { headers: { 'Authorization': `Bearer ${token}` } });
                 let textData = await res.text();
                 textData = textData.replace(/^\uFEFF/, '');
                 const data = JSON.parse(textData);
@@ -240,7 +242,7 @@ function EfdalAI() {
             const cleanAda = String(ada).trim().replace(/\s+/g, '');
             const cleanParsel = String(parsel).trim().replace(/\s+/g, '');
 
-            const res = await fetch(`/api/tkgm/parcel/${nId}/${cleanAda}/${cleanParsel}`, {
+            const res = await fetch(`${API_BASE_URL}/tkgm/parcel/${nId}/${cleanAda}/${cleanParsel}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -265,7 +267,7 @@ function EfdalAI() {
         setAnalyzingParcel(true);
         setParcelAnalysis(null);
         try {
-            const res = await fetch(`/api/ai/analyze-parcel`, {
+            const res = await fetch(`${API_BASE_URL}/ai/analyze-parcel`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -296,7 +298,7 @@ function EfdalAI() {
         }
         setAnalyzingId(id);
         try {
-            const response = await fetch(`/api/ai/analyze/${id}`, {
+            const response = await fetch(`${API_BASE_URL}/ai/analyze/${id}`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -330,7 +332,7 @@ function EfdalAI() {
     const handleClearAnalysis = async (id) => {
         if (!window.confirm('Mevcut analizi temizlemek istediğinize emin misiniz?')) return;
         try {
-            const response = await fetch(`/api/ai/clear/${id}`, {
+            const response = await fetch(`${API_BASE_URL}/ai/clear/${id}`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -385,7 +387,7 @@ function EfdalAI() {
     const handleApproveRecord = async (id) => {
         if (!window.confirm('Bu ilanı onaylayıp portföyünüze taşımak istediğinize emin misiniz?')) return;
         try {
-            const response = await fetch(`/api/records/${id}/approve`, {
+            const response = await fetch(`${API_BASE_URL}/records/${id}/approve`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

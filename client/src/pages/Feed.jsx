@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../config';
+
 
 function Feed() {
     const { token } = useContext(AuthContext);
@@ -18,7 +20,7 @@ function Feed() {
     const fetchFeed = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/feed', {
+            const res = await fetch(`${API_BASE_URL}/feed`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -35,7 +37,7 @@ function Feed() {
     const fetchMyListings = async () => {
         setLoadingListings(true);
         try {
-            const res = await fetch('/api/records', {
+            const res = await fetch(`${API_BASE_URL}/records`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -57,7 +59,7 @@ function Feed() {
         if (!selectedDemand || !listing) return;
         setSending(true);
         try {
-            const res = await fetch('/api/messages', {
+            const res = await fetch(`${API_BASE_URL}/messages`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -9,6 +9,8 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
+import { API_BASE_URL } from '../config';
+
 
 const DnDCalendar = withDragAndDrop(Calendar);
 
@@ -66,8 +68,8 @@ function Appointments() {
         setLoading(true);
         try {
             const [appRes, listRes] = await Promise.all([
-                fetch('/api/appointments', { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch('/api/records', { headers: { 'Authorization': `Bearer ${token}` } })
+                fetch(`${API_BASE_URL}/appointments`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                fetch(`${API_BASE_URL}/records`, { headers: { 'Authorization': `Bearer ${token}` } })
             ]);
 
             const appResult = await appRes.json();
@@ -128,8 +130,8 @@ function Appointments() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const url = editingId
-            ? `/api/appointments/${editingId}`
-            : '/api/appointments';
+            ? `${API_BASE_URL}/appointments/${editingId}`
+            : `${API_BASE_URL}/appointments`;
 
         const method = editingId ? 'PUT' : 'POST';
 
@@ -159,7 +161,7 @@ function Appointments() {
         if (!window.confirm("Bu randevu/iletişim kaydını silmek istediğinize emin misiniz?")) return;
 
         try {
-            const response = await fetch(`/api/appointments/${id}`, {
+            const response = await fetch(`${API_BASE_URL}/appointments/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -176,7 +178,7 @@ function Appointments() {
     const handleEventDrop = async ({ event, start, end }) => {
         const appointmentId = event.id;
         try {
-            const response = await fetch(`/api/appointments/${appointmentId}`, {
+            const response = await fetch(`${API_BASE_URL}/appointments/${appointmentId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

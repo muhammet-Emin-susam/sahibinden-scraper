@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
+
 
 function Messages() {
     const { token, user } = useContext(AuthContext);
@@ -39,7 +41,7 @@ function Messages() {
 
     const fetchConversations = async () => {
         try {
-            const res = await fetch('/api/messages/conversations', {
+            const res = await fetch(`${API_BASE_URL}/messages/conversations`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -57,8 +59,8 @@ function Messages() {
     const fetchMessages = async (demandId, otherUserId) => {
         try {
             const url = otherUserId
-                ? `/api/messages/${demandId}?otherUserId=${otherUserId}`
-                : `/api/messages/${demandId}`;
+                ? `${API_BASE_URL}/messages/${demandId}?otherUserId=${otherUserId}`
+                : `${API_BASE_URL}/messages/${demandId}`;
             const res = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -76,7 +78,7 @@ function Messages() {
     const fetchMyListings = async () => {
         setLoadingMyListings(true);
         try {
-            const res = await fetch('/api/records', {
+            const res = await fetch(`${API_BASE_URL}/records`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -105,7 +107,7 @@ function Messages() {
         if (!finalMessageText) return;
 
         try {
-            const res = await fetch('/api/messages', {
+            const res = await fetch(`${API_BASE_URL}/messages`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

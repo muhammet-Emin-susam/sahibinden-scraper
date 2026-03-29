@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
+
 
 function Demands() {
     const { token, user } = useContext(AuthContext);
@@ -63,7 +65,7 @@ function Demands() {
 
     const fetchUsers = async () => {
         try {
-            const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+            const res = await fetch(`${API_BASE_URL}/users`, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await res.json();
             if (data.success) {
                 setUsers(data.data.filter(u => u.id !== user?.id));
@@ -73,7 +75,7 @@ function Demands() {
 
     const fetchAvailableLocations = async () => {
         try {
-            const res = await fetch('/api/records', { headers: { 'Authorization': `Bearer ${token}` } });
+            const res = await fetch(`${API_BASE_URL}/records`, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await res.json();
             if (data.success) {
                 const map = {};
@@ -104,7 +106,7 @@ function Demands() {
     const fetchColleagueMatches = async (demandId) => {
         setLoadingColleagueMatches(true);
         try {
-            const res = await fetch(`/api/demands/${demandId}/colleague-matches`, {
+            const res = await fetch(`${API_BASE_URL}/demands/${demandId}/colleague-matches`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -121,7 +123,7 @@ function Demands() {
     const fetchSuggestions = async (demandId) => {
         setLoadingSuggestions(true);
         try {
-            const res = await fetch(`/api/demands/${demandId}/suggestions`, {
+            const res = await fetch(`${API_BASE_URL}/demands/${demandId}/suggestions`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -139,8 +141,8 @@ function Demands() {
         setLoadingMessages(true);
         try {
             const url = otherUserId 
-                ? `/api/messages/${demandId}?otherUserId=${otherUserId}`
-                : `/api/messages/${demandId}`;
+                ? `${API_BASE_URL}/messages/${demandId}?otherUserId=${otherUserId}`
+                : `${API_BASE_URL}/messages/${demandId}`;
             const res = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -161,7 +163,7 @@ function Demands() {
         if (!newMessageText.trim() || !chatReceiverId || !chatDemandId) return;
 
         try {
-            const res = await fetch('/api/messages', {
+            const res = await fetch(`${API_BASE_URL}/messages`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -194,7 +196,7 @@ function Demands() {
     const fetchDemands = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/demands`, {
+            const res = await fetch(`${API_BASE_URL}/demands`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -213,7 +215,7 @@ function Demands() {
         if (!window.confirm('Bu talebi silmek istediğinize emin misiniz?')) return;
 
         try {
-            const res = await fetch(`/api/demands/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/demands/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -229,7 +231,7 @@ function Demands() {
 
     const handleUpdateStatus = async (id, newStatus) => {
         try {
-            const res = await fetch(`/api/demands/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/demands/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -267,7 +269,7 @@ function Demands() {
             });
             const locations = Object.values(groups);
 
-            const res = await fetch(`/api/demands`, {
+            const res = await fetch(`${API_BASE_URL}/demands`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -312,7 +314,7 @@ function Demands() {
             });
             const locations = Object.values(groups);
 
-            const res = await fetch(`/api/demands/${selectedDemand.id}`, {
+            const res = await fetch(`${API_BASE_URL}/demands/${selectedDemand.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -348,7 +350,7 @@ function Demands() {
 
         setRemovingMatchId(listingId);
         try {
-            const res = await fetch(`/api/demands/${demandId}/match/${listingId}`, {
+            const res = await fetch(`${API_BASE_URL}/demands/${demandId}/match/${listingId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -386,7 +388,7 @@ function Demands() {
             const district = parts[1] || '';
             const neighborhood = parts[2] || '';
 
-            const res = await fetch(`/api/demands/${selectedDemand.id}/match`, {
+            const res = await fetch(`${API_BASE_URL}/demands/${selectedDemand.id}/match`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -437,7 +439,7 @@ function Demands() {
 
     const handleShareDemand = async (demandId, shareType, sharedWithIds = []) => {
         try {
-        const res = await fetch(`/api/demands/${demandId}/share`, {
+        const res = await fetch(`${API_BASE_URL}/demands/${demandId}/share`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

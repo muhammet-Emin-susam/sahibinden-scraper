@@ -1,6 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
+
 
 function Admin() {
     const { token, user, logout } = useContext(AuthContext);
@@ -30,7 +32,7 @@ function Admin() {
 
     const fetchUsers = async () => {
         try {
-            const response = await fetch('/api/admin/users', {
+            const response = await fetch(`${API_BASE_URL}/admin/users`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -48,8 +50,8 @@ function Admin() {
         try {
             const isEdit = !!editingUser;
             const url = isEdit
-                ? `/api/admin/users/${editingUser.id}`
-                : '/api/admin/users';
+                ? `${API_BASE_URL}/admin/users/${editingUser.id}`
+                : '${API_BASE_URL}/admin/users';
             const method = isEdit ? 'PUT' : 'POST';
 
             const response = await fetch(url, {
@@ -93,7 +95,7 @@ function Admin() {
     const handleDeleteUser = async () => {
         if (!deleteTarget) return;
         try {
-            const response = await fetch(`/api/admin/users/${deleteTarget.id}`, {
+            const response = await fetch(`${API_BASE_URL}/admin/users/${deleteTarget.id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -115,7 +117,7 @@ function Admin() {
     const handleReCategorize = async () => {
         setMsg({ type: 'info', text: 'Kategorilendirme başlatıldı...' });
         try {
-            const response = await fetch('/api/admin/re-categorize', {
+            const response = await fetch(`${API_BASE_URL}/admin/re-categorize`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -159,7 +161,7 @@ function Admin() {
         e.preventDefault();
         setMsg({ type: '', text: '' });
         try {
-            const response = await fetch('/api/admin/credentials', {
+            const response = await fetch(`${API_BASE_URL}/admin/credentials`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

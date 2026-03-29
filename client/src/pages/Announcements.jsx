@@ -1,5 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../config';
+
 
 // Parse text and convert URLs to clickable links
 function renderContent(text) {
@@ -41,7 +43,7 @@ function Announcements() {
 
     const fetchAnnouncements = async () => {
         try {
-            const response = await fetch('/api/announcements', {
+            const response = await fetch(`${API_BASE_URL}/announcements`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -66,7 +68,7 @@ function Announcements() {
         formData.append('image', file);
 
         try {
-            const response = await fetch('/api/upload', {
+            const response = await fetch(`${API_BASE_URL}/upload`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -92,7 +94,7 @@ function Announcements() {
     useEffect(() => {
         if (token) {
             fetchAnnouncements();
-            fetch('/api/records', {
+            fetch(`${API_BASE_URL}/records`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(r => r.json()).then(d => {
                 if (d.success) setAllListings(d.data || []);
@@ -104,7 +106,7 @@ function Announcements() {
         e.preventDefault();
         setMsg({ type: '', text: '' });
         try {
-            const response = await fetch('/api/announcements', {
+            const response = await fetch(`${API_BASE_URL}/announcements`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -133,7 +135,7 @@ function Announcements() {
     const handleDeleteAnnouncement = async (id) => {
         if (!window.confirm('Bu duyuruyu silmek istediğinize emin misiniz?')) return;
         try {
-            const response = await fetch(`/api/announcements/${id}`, {
+            const response = await fetch(`${API_BASE_URL}/announcements/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

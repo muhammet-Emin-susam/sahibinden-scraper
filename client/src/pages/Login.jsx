@@ -1,6 +1,8 @@
 import { useState, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
+
 
 function Login() {
     const [username, setUsername] = useState('');
@@ -16,7 +18,7 @@ function Login() {
         setIsLoading(true);
 
         try {
-            const response = await fetch(`/api/login`, {
+            const response = await fetch(`${API_BASE_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),

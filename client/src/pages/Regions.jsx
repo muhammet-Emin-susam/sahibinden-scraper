@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
 
 function Regions() {
     const { token, user, logout } = useContext(AuthContext);
@@ -25,8 +26,11 @@ function Regions() {
         }
 
         // Fetch geojson file from public folder
-        fetch('/konya_mahalleler.geojson')
-            .then(res => res.json())
+        fetch(`${import.meta.env.BASE_URL}konya_mahalleler.geojson`)
+            .then(res => {
+                if (!res.ok) throw new Error('Network response was not ok');
+                return res.json();
+            })
             .then(data => {
                 setMahalleler(data);
                 // Extract unique districts
@@ -45,7 +49,7 @@ function Regions() {
 
     const fetchAssignments = async () => {
         try {
-            const res = await fetch('/api/regions/assignments', {
+            const res = await fetch(`${API_BASE_URL}/regions/assignments`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -55,7 +59,7 @@ function Regions() {
 
     const fetchUsers = async () => {
         try {
-            const endpoint = user?.role === 'admin' ? '/api/admin/users' : '/api/users';
+            const endpoint = user?.role === 'admin' ? `${API_BASE_URL}/admin/users` : `${API_BASE_URL}/users`;
             const res = await fetch(`${endpoint}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -148,7 +152,7 @@ function Regions() {
     const handleAssignSubmit = async (userId) => {
         if (!modalData) return;
         try {
-            const res = await fetch('/api/regions/assign', {
+            const res = await fetch(`${API_BASE_URL}/regions/assign`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

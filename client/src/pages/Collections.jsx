@@ -2,6 +2,8 @@ import React, { useState, useEffect, useContext, useRef } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx-js-style';
+import { API_BASE_URL } from '../config';
+
 
 const Collections = () => {
     const { token, user } = useContext(AuthContext);
@@ -38,7 +40,7 @@ const Collections = () => {
     const fetchCollections = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/collections', {
+            const res = await fetch(`${API_BASE_URL}/collections`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -60,7 +62,7 @@ const Collections = () => {
             setRecordsLoading(true);
             // We'll fetch all records and filter by collectionId for now, 
             // or we could update the backend to support ?collectionId=...
-            const res = await fetch('/api/records', {
+            const res = await fetch(`${API_BASE_URL}/records`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -80,7 +82,7 @@ const Collections = () => {
     const handleRenameCollection = async () => {
         if (!newName.trim()) return;
         try {
-            const res = await fetch(`/api/collections/${selectedCollectionId}`, {
+            const res = await fetch(`${API_BASE_URL}/collections/${selectedCollectionId}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -102,7 +104,7 @@ const Collections = () => {
         if (!window.confirm("Bu koleksiyonu silmek istediğinize emin misiniz? İlanlar silinmeyecek, sadece bu gruptan çıkarılacaktır.")) return;
         try {
             setIsDeleting(true);
-            const res = await fetch(`/api/collections/${selectedCollectionId}`, {
+            const res = await fetch(`${API_BASE_URL}/collections/${selectedCollectionId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -130,7 +132,7 @@ const Collections = () => {
         const updatedCollections = record.collections.filter(cId => cId !== selectedCollectionId);
 
         try {
-            const res = await fetch(`/api/records/${recordId}/collections`, {
+            const res = await fetch(`${API_BASE_URL}/records/${recordId}/collections`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,

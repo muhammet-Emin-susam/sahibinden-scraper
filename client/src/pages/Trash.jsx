@@ -2,6 +2,8 @@ import React, { useState, useEffect, useContext } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { AuthContext } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
+
 
 function TrashListings() {
     const [savedRecords, setSavedRecords] = useState([]);
@@ -22,7 +24,7 @@ function TrashListings() {
     const fetchRecords = async () => {
         if (!token) return;
         try {
-            const response = await fetch('/api/records', {
+            const response = await fetch(`${API_BASE_URL}/records`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -53,7 +55,7 @@ function TrashListings() {
         if (!window.confirm("Bu ilanı HİÇBİR ZAMAN geri döndürülemeyecek şekilde KALICI olarak silmek istediğinize emin misiniz?")) return;
 
         try {
-            await fetch(`/api/records/${id}/hard`, {
+            await fetch(`${API_BASE_URL}/records/${id}/hard`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -69,7 +71,7 @@ function TrashListings() {
         if (!window.confirm("Çöp kutusundaki TÜM ilanları KALICI olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
 
         try {
-            await fetch(`/api/records/trash/empty`, {
+            await fetch(`${API_BASE_URL}/records/trash/empty`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -85,7 +87,7 @@ function TrashListings() {
         e.stopPropagation();
 
         try {
-            await fetch(`/api/records/${id}/restore`, {
+            await fetch(`${API_BASE_URL}/records/${id}/restore`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -105,7 +107,7 @@ function TrashListings() {
         try {
             const bodyData = isNote ? { note: value } : { status_tag: value };
 
-            const response = await fetch(`/api/records/${id}/update`, {
+            const response = await fetch(`${API_BASE_URL}/records/${id}/update`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -141,7 +143,7 @@ function TrashListings() {
         // Fetch activity when opening
         if (newId && !activityLogs[newId]) {
             try {
-                const res = await fetch(`/api/records/${newId}/activity`, {
+                const res = await fetch(`${API_BASE_URL}/records/${newId}/activity`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();

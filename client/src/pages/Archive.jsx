@@ -5,6 +5,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { tr } from 'date-fns/locale';
+import { API_BASE_URL } from '../config';
+
 
 const Archive = () => {
     const [savedRecords, setSavedRecords] = useState([]);
@@ -62,7 +64,7 @@ const Archive = () => {
     const fetchRecords = async () => {
         if (!token) return;
         try {
-            const response = await fetch('/api/records', {
+            const response = await fetch(`${API_BASE_URL}/records`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -83,7 +85,7 @@ const Archive = () => {
     const fetchArchiveFolders = async () => {
         if (!token) return;
         try {
-            const response = await fetch('/api/archive-folders', {
+            const response = await fetch(`${API_BASE_URL}/archive-folders`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await response.json();
@@ -98,7 +100,7 @@ const Archive = () => {
     const fetchCollections = async () => {
         if (!token) return;
         try {
-            const response = await fetch('/api/collections', {
+            const response = await fetch(`${API_BASE_URL}/collections`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await response.json();
@@ -128,7 +130,7 @@ const Archive = () => {
     const handleCreateCollection = async () => {
         if (!newCollectionName.trim()) return;
         try {
-            const res = await fetch('/api/collections', {
+            const res = await fetch(`${API_BASE_URL}/collections`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -153,7 +155,7 @@ const Archive = () => {
         setCollectingId(recordToCollect.id);
 
         try {
-            const response = await fetch(`/api/records/${recordToCollect.id}/collections`, {
+            const response = await fetch(`${API_BASE_URL}/records/${recordToCollect.id}/collections`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -177,7 +179,7 @@ const Archive = () => {
     const handleCreateFolder = async () => {
         if (!newFolderName.trim()) return;
         try {
-            const res = await fetch('/api/archive-folders', {
+            const res = await fetch(`${API_BASE_URL}/archive-folders`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -202,7 +204,7 @@ const Archive = () => {
         if (!window.confirm('Bu klasörü silmek istediğinize emin misiniz? İçindeki klasörler "Genel" klasörüne taşınacaktır.')) return;
 
         try {
-            const res = await fetch(`/api/archive-folders/${folderId}`, {
+            const res = await fetch(`${API_BASE_URL}/archive-folders/${folderId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -224,7 +226,7 @@ const Archive = () => {
         setMovingId(recordToMove.id);
 
         try {
-            const response = await fetch(`/api/records/${recordToMove.id}/move-folder`, {
+            const response = await fetch(`${API_BASE_URL}/records/${recordToMove.id}/move-folder`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -266,7 +268,7 @@ const Archive = () => {
         e.stopPropagation();
 
         try {
-            await fetch(`/api/records/${id}`, {
+            await fetch(`${API_BASE_URL}/records/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -286,7 +288,7 @@ const Archive = () => {
         try {
             const bodyData = isNote ? { note: value } : { status_tag: value };
 
-            const response = await fetch(`/api/records/${id}/update`, {
+            const response = await fetch(`${API_BASE_URL}/records/${id}/update`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -321,7 +323,7 @@ const Archive = () => {
         setUnarchivingId(id);
 
         try {
-            const response = await fetch(`/api/records/${id}/unarchive`, {
+            const response = await fetch(`${API_BASE_URL}/records/${id}/unarchive`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -344,7 +346,7 @@ const Archive = () => {
         // Fetch activity when opening
         if (newId && !activityLogs[newId]) {
             try {
-                const res = await fetch(`/api/records/${newId}/activity`, {
+                const res = await fetch(`${API_BASE_URL}/records/${newId}/activity`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();

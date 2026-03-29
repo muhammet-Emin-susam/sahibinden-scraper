@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
+
 
 const ActivitySparkline = ({ data = [] }) => {
     if (!data || data.length === 0) return null;
@@ -119,7 +121,7 @@ function Home() {
         const fetchData = async () => {
             if (!token) return;
             try {
-                const response = await fetch('/api/records', {
+                const response = await fetch(`${API_BASE_URL}/records`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await response.json();
