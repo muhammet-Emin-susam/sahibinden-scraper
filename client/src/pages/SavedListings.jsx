@@ -10,6 +10,7 @@ import { API_BASE_URL } from '../config';
 
 function SavedListings() {
     const [savedRecords, setSavedRecords] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [expandedRecordId, setExpandedRecordId] = useState(null);
     const [archivingId, setArchivingId] = useState(null);
     const [lightboxImage, setLightboxImage] = useState(null);
@@ -61,7 +62,7 @@ function SavedListings() {
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 50;
+    const itemsPerPage = 20;
 
     const { token, user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -179,9 +180,16 @@ function SavedListings() {
     };
 
     useEffect(() => {
-        fetchRecords();
-        fetchArchiveFolders();
-        fetchCollections();
+        const initFetch = async () => {
+            setIsLoading(true);
+            await Promise.all([
+                fetchRecords(),
+                fetchArchiveFolders(),
+                fetchCollections()
+            ]);
+            setIsLoading(false);
+        };
+        initFetch();
         const interval = setInterval(fetchRecords, 5000);
         return () => clearInterval(interval);
     }, [token]);
@@ -438,7 +446,6 @@ function SavedListings() {
     const [selectedMainCategory, setSelectedMainCategory] = useState('Tümü');
     const [selectedSubCategory, setSelectedSubCategory] = useState('Tümü');
 
-    // Reset page to 1 whenever any filter changes
     useEffect(() => {
         setCurrentPage(1);
     }, [
@@ -452,6 +459,14 @@ function SavedListings() {
         startDate,
         endDate
     ]);
+
+    useEffect(() => {
+        // Scroll to top of the table container when page changes
+        const mainContainer = document.querySelector('main > div.overflow-y-auto');
+        if (mainContainer) {
+            mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [currentPage]);
 
     const mainCategories = ['Tümü', 'Satılık', 'Kiralık', 'Günlük Kiralık', 'Devren Satılık', 'Devren Kiralık', 'Kat Karşılığı', 'Diğer'];
     const subCategories = ['Tümü', 'Konut', 'İş Yeri', 'Arsa', 'Tarla', 'Bahçe', 'Bağ', 'Zeytinlik', 'Bina', 'Devre Mülk', 'Turistik Tesis', 'Diğer'];
@@ -1770,7 +1785,20 @@ function SavedListings() {
                                     </tbody>
                                 </table>
                             </div>
-                            {savedRecords.length === 0 && (
+                            {isLoading ? (
+                                <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
+                                    <div className="relative w-16 h-16 mb-4">
+                                        <svg className="w-full h-full animate-[spin_2s_linear_infinite]" viewBox="0 0 100 100">
+                                            <circle cx="50" cy="50" r="45" fill="none" stroke="#e0e7ff" strokeWidth="8" />
+                                            <circle cx="50" cy="50" r="45" fill="none" stroke="#4f46e5" strokeWidth="8" strokeLinecap="round" strokeDasharray="283" strokeDashoffset="70" className="opacity-90 animate-[pulse_1.5s_ease-in-out_infinite]" />
+                                        </svg>
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-indigo-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                        </div>
+                                    </div>
+                                    <p className="text-gray-500 font-medium text-sm animate-pulse">İlanlar Yükleniyor...</p>
+                                </div>
+                            ) : savedRecords.length === 0 && (
                                 <div className="p-16 text-center">
                                     <div className="text-gray-300 mb-4">
                                         <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>

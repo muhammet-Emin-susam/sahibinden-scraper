@@ -56,7 +56,7 @@ const Archive = () => {
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 50;
+    const itemsPerPage = 20;
 
     const { token, user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -374,6 +374,14 @@ const Archive = () => {
         startDate,
         endDate
     ]);
+
+    useEffect(() => {
+        // Scroll to top of the table container when page changes
+        const mainContainer = document.querySelector('main > div.overflow-y-auto');
+        if (mainContainer) {
+            mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [currentPage]);
 
     const mainCategories = ['Tümü', 'Satılık', 'Kiralık', 'Günlük Kiralık', 'Devren Satılık', 'Devren Kiralık', 'Kat Karşılığı', 'Diğer'];
     const subCategories = ['Tümü', 'Konut', 'İş Yeri', 'Arsa', 'Tarla', 'Bahçe', 'Bağ', 'Zeytinlik', 'Bina', 'Devre Mülk', 'Turistik Tesis', 'Diğer'];

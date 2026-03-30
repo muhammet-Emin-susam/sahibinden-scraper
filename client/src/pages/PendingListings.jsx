@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../config';
 
 function PendingListings() {
     const [pendingRecords, setPendingRecords] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [expandedRecordId, setExpandedRecordId] = useState(null);
     const [lightboxImage, setLightboxImage] = useState(null);
     const [isZoomed, setIsZoomed] = useState(false);
@@ -50,7 +51,12 @@ function PendingListings() {
             navigate('/home');
             return;
         }
-        fetchRecords();
+        const initFetch = async () => {
+            setIsLoading(true);
+            await fetchRecords();
+            setIsLoading(false);
+        };
+        initFetch();
         const interval = setInterval(fetchRecords, 5000);
         return () => clearInterval(interval);
     }, [token, user, navigate]);
@@ -440,7 +446,20 @@ function PendingListings() {
                         </tbody>
                     </table>
                 </div>
-                {pendingRecords.length === 0 && (
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
+                        <div className="relative w-16 h-16 mb-4">
+                            <svg className="w-full h-full animate-[spin_2s_linear_infinite]" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="#ffedd5" strokeWidth="8" />
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="round" strokeDasharray="283" strokeDashoffset="70" className="opacity-90 animate-[pulse_1.5s_ease-in-out_infinite]" />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <svg className="w-6 h-6 text-orange-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
+                        </div>
+                        <p className="text-gray-500 font-medium text-sm animate-pulse">Bekleyen İlanlar Yükleniyor...</p>
+                    </div>
+                ) : pendingRecords.length === 0 && (
                     <div className="p-16 text-center">
                         <div className="text-gray-300 mb-4">
                             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
