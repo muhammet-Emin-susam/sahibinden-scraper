@@ -149,33 +149,41 @@ const Layout = ({ children }) => {
                 const data = await response.json();
                 if (!data.success || !data.data.length) return;
 
-                const lastSeenAt = localStorage.getItem(storageKey);
+                let lastSeenAt = localStorage.getItem(storageKey);
                 const allAnn = data.data;
                 const latest = allAnn[0];
 
+                // If no lastSeenAt recorded yet (first login on this browser)
+                // we set it to current time now so historical announcements don't spam.
+                if (!lastSeenAt) {
+                    lastSeenAt = new Date().toISOString();
+                    localStorage.setItem(storageKey, lastSeenAt);
+                }
+
                 // Count how many announcements are newer than lastSeenAt
-                const newOnes = lastSeenAt
-                    ? allAnn.filter(a => new Date(a.createdAt) > new Date(lastSeenAt))
-                    : allAnn;
+                const newOnes = allAnn.filter(a => new Date(a.createdAt) > new Date(lastSeenAt));
 
                 // Only update unread if not on announcements page
                 if (location.pathname !== '/sayfalar/duyurular') {
                     setUnreadCount(newOnes.length);
+                } else {
+                    // If on the page, unread is zero by definition
+                    setUnreadCount(0);
                 }
 
-                // Show toast for the latest if it's new AND not already toasted
+                // Show toast for the latest if it's new AND not already toasted AND not on announcements page
                 const toastedKey = `efdal_toasted_ann_${user.id}`;
                 const lastToastedId = localStorage.getItem(toastedKey);
-                if (newOnes.length > 0 && newOnes[0].id === latest.id && lastToastedId !== latest.id) {
+                
+                if (newOnes.length > 0 && 
+                    newOnes[0].id === latest.id && 
+                    lastToastedId !== latest.id && 
+                    location.pathname !== '/sayfalar/duyurular') {
+                    
                     localStorage.setItem(toastedKey, latest.id);
                     setNotification(latest);
                     playNotificationSound();
                     setTimeout(() => setNotification(null), 10000);
-                }
-
-                // If no lastSeenAt yet, set it now (first visit - mark all as seen but still show badge)
-                if (!lastSeenAt) {
-                    // Don't mark as seen immediately — let user visit the page
                 }
             } catch (err) {
                 console.error('Notification poll error:', err);
@@ -301,9 +309,13 @@ const Layout = ({ children }) => {
 
                     {renderMenuItem('/sayfalar/kaydedilenler', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01', 'Kaydedilenler')}
 
+                    {renderMenuItem('/sayfalar/takas', 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', 'Takaslık İlanlar')}
+
                     {renderMenuItem('/sayfalar/arsiv', 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4', 'Arşiv')}
 
                     {renderMenuItem('/sayfalar/koleksiyonlar', 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10', 'Koleksiyonlarım')}
+
+                    {renderMenuItem('/sayfalar/excel-listeleri', 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'Veri Aktarımı')}
 
                     {renderMenuItem('/sayfalar/silinenler', 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16', 'Silinen İlanlar')}
 
@@ -375,9 +387,9 @@ const Layout = ({ children }) => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col h-full overflow-hidden bg-white shadow-sm md:rounded-3xl border-t md:border border-gray-200">
+            <main className="flex-1 flex flex-col h-full overflow-hidden bg-white md:rounded-l-3xl border-t md:border-l border-gray-200">
                 <div className="flex-1 overflow-y-auto">
-                    <div className="max-w-7xl mx-auto p-4 md:p-8">
+                    <div className="p-4 md:p-6 lg:p-8">
                         {children}
                     </div>
                 </div>

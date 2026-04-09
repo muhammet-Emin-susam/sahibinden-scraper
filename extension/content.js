@@ -412,17 +412,29 @@ async function scrapeData() {
 
 // Create and inject the floating button
 async function injectButton() {
+    const container = document.createElement('div');
+    container.id = 'sahibinden-scraper-container';
+
     const btn = document.createElement('button');
     btn.id = 'sahibinden-scraper-btn';
+
+    const tradeBtn = document.createElement('button');
+    tradeBtn.id = 'sahibinden-scraper-trade-btn';
+    tradeBtn.title = 'Takas Sayfasına Ekle';
 
     const updateButtonState = async () => {
         const { auth_user } = await chrome.storage.local.get(['auth_user']);
         if (auth_user) {
             btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> ${auth_user.username} - Kaydet`;
             btn.className = 'logged-in';
+            
+            tradeBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"></path><path d="M20 7H4"></path><path d="m8 21-4-4 4-4"></path><path d="M4 17h16"></path></svg> Takaslı Ekle`;
+            tradeBtn.className = 'logged-in';
+            tradeBtn.style.display = 'flex';
         } else {
             btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Giriş Bekleniyor`;
             btn.className = 'logged-out';
+            tradeBtn.style.display = 'none';
         }
     };
 
@@ -435,18 +447,18 @@ async function injectButton() {
         }
     });
 
-    btn.onclick = async () => {
-        const { auth_token, auth_user } = await chrome.storage.local.get(['auth_token', 'auth_user']);
+    const handleSave = async (targetBtn, isTrade = false) => {
+        const { auth_token } = await chrome.storage.local.get(['auth_token']);
         if (!auth_token) {
             alert('İlanı kaydetmek için lütfen sağ üstten eklenti simgesine tıklayıp giriş yapın.');
             return;
         }
 
-        const originalHtml = btn.innerHTML;
-        const originalClass = btn.className;
+        const originalHtml = targetBtn.innerHTML;
+        const originalClass = targetBtn.className;
 
-        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="animate-spin" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg> Kaydediliyor...';
-        btn.disabled = true;
+        targetBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="animate-spin" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg> Kaydediliyor...';
+        targetBtn.disabled = true;
 
         const sendSaveRequest = async (saveData) => {
             const response = await chrome.runtime.sendMessage({
@@ -458,7 +470,7 @@ async function injectButton() {
                 if (response.data && response.data.success === false) {
                     if (response.data.error === 'DUPLICATE_WARNING') {
                         // Show Duplicate Prompt inside Button
-                        btn.innerHTML = `
+                        targetBtn.innerHTML = `
                             <div class="duplicate-prompt">
                                 <span class="prompt-text">Bu ilan zaten ekli.<br>Yine de eklensin mi?</span>
                                 <label class="prompt-text" style="font-size: 11px; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer;">
@@ -471,8 +483,8 @@ async function injectButton() {
                                 </div>
                             </div>
                         `;
-                        btn.className = 'warning';
-                        btn.disabled = false;
+                        targetBtn.className = 'warning';
+                        targetBtn.disabled = false;
 
                         // Stop regular flow because we are waiting for user click
                         return new Promise((resolve, reject) => {
@@ -480,9 +492,9 @@ async function injectButton() {
                                 e.stopPropagation();
                                 const isOverwrite = document.getElementById('chk-overwrite')?.checked || false;
 
-                                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="animate-spin" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg> Zorlayarak Kaydediliyor...';
-                                btn.className = originalClass;
-                                btn.disabled = true;
+                                targetBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="animate-spin" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg> Zorlayarak Kaydediliyor...';
+                                targetBtn.className = originalClass;
+                                targetBtn.disabled = true;
                                 try {
                                     await sendSaveRequest({ ...saveData, forceSave: true, overwrite: isOverwrite });
                                     resolve();
@@ -492,8 +504,8 @@ async function injectButton() {
                             };
                             document.getElementById('btn-cancel-save').onclick = (e) => {
                                 e.stopPropagation();
-                                btn.innerHTML = originalHtml;
-                                btn.className = originalClass;
+                                targetBtn.innerHTML = originalHtml;
+                                targetBtn.className = originalClass;
                                 resolve('CANCELLED');
                             };
                         });
@@ -501,12 +513,12 @@ async function injectButton() {
                     throw new Error(response.data.message || response.data.error || 'Sunucu hatası');
                 }
 
-                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Kaydedildi!';
-                btn.className = 'success';
+                targetBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Kaydedildi!';
+                targetBtn.className = 'success';
                 setTimeout(() => {
-                    btn.innerHTML = originalHtml;
-                    btn.className = originalClass;
-                    btn.disabled = false;
+                    targetBtn.innerHTML = originalHtml;
+                    targetBtn.className = originalClass;
+                    targetBtn.disabled = false;
                 }, 2000);
             } else {
                 throw new Error(response.error || 'Unknown error');
@@ -515,34 +527,48 @@ async function injectButton() {
 
         try {
             const data = await scrapeData();
-            console.log('Sending Data to Background:', data);
-
-            const result = await sendSaveRequest(data);
-            if (result === 'CANCELLED') {
-                return; // User canceled
+            if (isTrade) {
+                const hasTradeProperty = data.properties['Takas'] === 'Evet';
+                if (!hasTradeProperty) {
+                    if (!confirm("İlan takaslı görünmüyor. Emin misiniz?")) {
+                        targetBtn.innerHTML = originalHtml;
+                        targetBtn.className = originalClass;
+                        targetBtn.disabled = false;
+                        return;
+                    }
+                }
+                data.isTrade = true;
             }
+
+            const targetApiUrl = await new Promise(r => chrome.storage.local.get(['api_url'], result => r(result.api_url || 'https://emlak.altaydev.com.tr')));
+            console.log(`[EXTENSION] Target API: ${targetApiUrl}`);
+            console.log(`[EXTENSION] Saving record: ${data.title} (ilanNo: ${data.ilanNo}, isTrade: ${data.isTrade || false})`);
+            const result = await sendSaveRequest(data);
+            if (result === 'CANCELLED') return;
 
         } catch (err) {
             console.error(err);
-
             if (err.message === 'USER_DELETED') {
-                // Account was deleted — storage already cleared by background.js, just update button
                 await updateButtonState();
                 return;
             }
-
-            btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Hata!';
-            btn.className = 'error';
+            targetBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Hata!';
+            targetBtn.className = 'error';
             alert("Kaydedilemedi: " + err.message);
             setTimeout(() => {
-                btn.innerHTML = originalHtml;
-                btn.className = originalClass;
-                btn.disabled = false;
+                targetBtn.innerHTML = originalHtml;
+                targetBtn.className = originalClass;
+                targetBtn.disabled = false;
             }, 3000);
         }
     };
 
-    document.body.appendChild(btn);
+    btn.onclick = () => handleSave(btn, false);
+    tradeBtn.onclick = () => handleSave(tradeBtn, true);
+
+    container.appendChild(btn);
+    container.appendChild(tradeBtn);
+    document.body.appendChild(container);
 }
 
 // Initialize

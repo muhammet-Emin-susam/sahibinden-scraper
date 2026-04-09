@@ -1,13 +1,20 @@
-#sahibinden-scraper-btn {
+#sahibinden-scraper-container {
     position: fixed;
     top: 20px;
     right: 20px;
     z-index: 999999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+#sahibinden-scraper-btn, 
+#sahibinden-scraper-trade-btn {
     padding: 12px 20px;
     font-size: 15px;
     font-weight: 600;
     color: white;
-    background-color: #3b82f6;
     border: none;
     border-radius: 50px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
@@ -18,19 +25,23 @@
     align-items: center;
     gap: 8px;
     backdrop-filter: blur(4px);
+    width: fit-content;
 }
 
-#sahibinden-scraper-btn:hover {
+#sahibinden-scraper-btn:hover,
+#sahibinden-scraper-trade-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
     filter: brightness(1.1);
 }
 
-#sahibinden-scraper-btn:active {
+#sahibinden-scraper-btn:active,
+#sahibinden-scraper-trade-btn:active {
     transform: translateY(1px) scale(0.98);
 }
 
-#sahibinden-scraper-btn:disabled {
+#sahibinden-scraper-btn:disabled,
+#sahibinden-scraper-trade-btn:disabled {
     opacity: 0.8;
     cursor: not-allowed;
     transform: none;
@@ -39,6 +50,10 @@
 /* Auth States */
 #sahibinden-scraper-btn.logged-in {
     background-color: #2563eb;
+}
+
+#sahibinden-scraper-trade-btn.logged-in {
+    background-color: #8b5cf6; /* Trade Purple */
 }
 
 #sahibinden-scraper-btn.logged-out {
@@ -50,16 +65,19 @@
 }
 
 /* Action States */
-#sahibinden-scraper-btn.success {
+#sahibinden-scraper-btn.success,
+#sahibinden-scraper-trade-btn.success {
     background-color: #10b981 !important;
 }
 
-#sahibinden-scraper-btn.error {
+#sahibinden-scraper-btn.error,
+#sahibinden-scraper-trade-btn.error {
     background-color: #ef4444 !important;
 }
 
 /* Warning State (Duplicate Prompt) */
-#sahibinden-scraper-btn.warning {
+#sahibinden-scraper-btn.warning,
+#sahibinden-scraper-trade-btn.warning {
     background-color: #ffffff;
     color: #1f2937;
     border: 2px solid #f59e0b;

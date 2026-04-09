@@ -31,7 +31,8 @@ const {
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Configure Multer for local storage (using /tmp for Vercel Serverless compatibility)
 const uploadsDir = process.env.NODE_ENV === 'production' ? '/tmp' : path.join(__dirname, 'uploads');
@@ -84,6 +85,9 @@ const DB_DEMANDS = "demands";
 const DB_ARCHIVE_FOLDERS = "archive_folders";
 const DB_COLLECTIONS = "collections";
 const DB_MESSAGES = "messages";
+const DB_TRADES = "trades";
+const DB_TRADE_REQUESTS = "trade_requests";
+const DB_EXCEL_LISTS = "excel_lists";
 
 const JWT_SECRET = process.env.JWT_SECRET || 'sahibinden-scraper-super-secret-key-123!';
 
@@ -609,12 +613,11 @@ app.get('/api/regions/assignments', authenticateToken, async (req, res) => {
 // GET all records
 app.get('/api/records', authenticateToken, async (req, res) => {
     try {
-        let q;
         if (req.user.role === 'admin') {
-            q = query(collection(db, DB_COLLECTION), orderBy("approvedAt", "desc"));
+            // Fetch all for admin, sort in-memory to avoid index requirement
+            q = query(collection(db, DB_COLLECTION));
         } else {
-            // Because Firestore requires a composite index for equality on userId and ordering by scrapedAt
-            // we will fetch by userId and sort in-memory to avoid index creation hassles for the user
+            // For users, fetch only their own
             q = query(collection(db, DB_COLLECTION), where("userId", "==", req.user.id));
         }
 
@@ -625,13 +628,15 @@ app.get('/api/records', authenticateToken, async (req, res) => {
             ...document.data()
         }));
 
-        if (req.user.role !== 'admin') {
-            records.sort((a, b) => {
-                const dateA = new Date(a.approvedAt || a.scrapedAt);
-                const dateB = new Date(b.approvedAt || b.scrapedAt);
-                return dateB - dateA;
-            });
-        }
+        // Sort in-memory to avoid index requirement during development
+        records.sort((a, b) => {
+            const dateA = new Date(a.approvedAt || a.scrapedAt);
+            const dateB = new Date(b.approvedAt || b.scrapedAt);
+            return dateB - dateA;
+        });
+
+        const tradeCount = records.filter(r => r.isTrade === true || r.isTrade === 'true').length;
+        console.log(`[GET RECORDS] Returned ${records.length} records. Trade records: ${tradeCount} for user ${req.user.username}`);
 
         res.json({ success: true, data: records });
     } catch (err) {
@@ -649,6 +654,9 @@ app.post('/api/save', authenticateToken, async (req, res) => {
     }
 
     try {
+        const newRecord = req.body;
+        console.log(`[SAVE] Incoming request for URL: ${newRecord.url} by ${req.user.username}`);
+
         let duplicatesSnap;
         // Priority check: Use 'İlan No' if available. It survives title/URL changes.
         if (newRecord.ilanNo) {
@@ -723,9 +731,10 @@ app.post('/api/save', authenticateToken, async (req, res) => {
         if (!newRecord.officeName) newRecord.officeName = '';
         if (!newRecord.officeLogo) newRecord.officeLogo = '';
         if (newRecord.isOffice === undefined) newRecord.isOffice = false;
+        if (newRecord.isTrade === undefined) newRecord.isTrade = false;
 
         const docRef = await addDoc(collection(db, DB_COLLECTION), newRecord);
-        console.log("Document written with ID: ", docRef.id, " by ", req.user.username);
+        console.log(`[SAVE SUCCESS] Document written with ID: ${docRef.id} by ${req.user.username}. isTrade: ${newRecord.isTrade}`);
 
         await logActivity({
             listingId: docRef.id,
@@ -2599,6 +2608,312 @@ app.delete('/api/announcements/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Trade Feed: Create
+app.post('/api/trades', authenticateToken, async (req, res) => {
+    try {
+        const { 
+            offeredType, offeredDetails, offeredData,
+            requestedType, requestedDetails, requestedData,
+            quotedListing 
+        } = req.body;
+        
+        const newTrade = {
+            userId: req.user.id,
+            userName: req.user.displayName || req.user.username,
+            userColor: req.user.userColor || '#3b82f6',
+            offeredType,
+            offeredDetails,
+            offeredData: offeredData || {},
+            requestedType,
+            requestedDetails,
+            requestedData: requestedData || {},
+            quotedListing: quotedListing || null,
+            status: 'active',
+            createdAt: new Date().toISOString()
+        };
+
+        const docRef = await addDoc(collection(db, DB_TRADES), newTrade);
+        
+        await logActivity({
+            listingId: docRef.id,
+            listingTitle: `Takas Talebi: ${offeredType} -> ${requestedType}`,
+            action: 'trade_created',
+            by: req.user.displayName || req.user.username,
+            byId: req.user.id
+        });
+
+        res.json({ success: true, data: { id: docRef.id, ...newTrade } });
+    } catch (err) {
+        console.error("POST /api/trades Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Trade Feed: List with Filtering
+app.get('/api/trades', authenticateToken, async (req, res) => {
+    try {
+        const { offeredType, requestedType, status } = req.query;
+        let q = collection(db, DB_TRADES);
+
+        // Building conditional queries
+        const constraints = [];
+        if (offeredType) constraints.push(where("offeredType", "==", offeredType));
+        if (requestedType) constraints.push(where("requestedType", "==", requestedType));
+        if (status) constraints.push(where("status", "==", status));
+
+        const queryRef = constraints.length > 0 ? query(q, ...constraints) : q;
+        const snap = await getDocs(queryRef);
+
+        const trades = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        trades.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        res.json({ success: true, data: trades });
+    } catch (err) {
+        console.error("GET /api/trades Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Trade Feed: Request Match
+app.post('/api/trades/:id/match-request', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const tradeRef = doc(db, DB_TRADES, id);
+        const tradeSnap = await getDoc(tradeRef);
+
+        if (!tradeSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Takas talebi bulunamadı.' });
+        }
+
+        const tradeData = tradeSnap.data();
+        if (tradeData.userId === req.user.id) {
+            return res.status(400).json({ success: false, error: 'Kendi talebinize eşleşme isteği gönderemezsiniz.' });
+        }
+
+        // Check if already requested
+        const q = query(
+            collection(db, DB_TRADE_REQUESTS), 
+            where("tradeId", "==", id), 
+            where("senderId", "==", req.user.id)
+        );
+        const existingSnap = await getDocs(q);
+        if (!existingSnap.empty) {
+            return res.status(400).json({ success: false, error: 'Bu talep için zaten bir eşleşme isteği gönderdiniz.' });
+        }
+
+        const newRequest = {
+            tradeId: id,
+            tradeTitle: `${tradeData.offeredType} -> ${tradeData.requestedType}`,
+            senderId: req.user.id,
+            senderName: req.user.displayName || req.user.username,
+            senderColor: req.user.userColor || '#3b82f6',
+            receiverId: tradeData.userId,
+            status: 'pending',
+            createdAt: new Date().toISOString()
+        };
+
+        const docRef = await addDoc(collection(db, DB_TRADE_REQUESTS), newRequest);
+        res.json({ success: true, data: { id: docRef.id, ...newRequest } });
+    } catch (err) {
+        console.error("POST /api/trades/:id/match-request Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Trade Feed: Get Match Requests for a trade (Owner Only)
+app.get('/api/trades/:id/match-requests', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const tradeSnap = await getDoc(doc(db, DB_TRADES, id));
+        if (!tradeSnap.exists() || tradeSnap.data().userId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Yetkisiz erişim.' });
+        }
+
+        const q = query(collection(db, DB_TRADE_REQUESTS), where("tradeId", "==", id));
+        const snap = await getDocs(q);
+        const requests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.json({ success: true, data: requests });
+    } catch (err) {
+        console.error("GET /api/match-requests Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Trade Feed: Respond to Match Request
+app.post('/api/match-requests/:id/respond', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { action } = req.body; // 'approve' or 'reject'
+        const reqRef = doc(db, DB_TRADE_REQUESTS, id);
+        const reqSnap = await getDoc(reqRef);
+
+        if (!reqSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'İstek bulunamadı.' });
+        }
+
+        const requestData = reqSnap.data();
+        if (requestData.receiverId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Yetkisiz işlem.' });
+        }
+
+        if (action === 'approve') {
+            await updateDoc(reqRef, { status: 'approved' });
+            
+            // Update the trade document to include the matched user
+            const tradeRef = doc(db, DB_TRADES, requestData.tradeId);
+            const tradeSnap = await getDoc(tradeRef);
+            if (tradeSnap.exists()) {
+                const tradeData = tradeSnap.data();
+                const matchedWith = tradeData.matchedWith || [];
+                
+                // Add if not already present
+                if (!matchedWith.some(m => m.userId === requestData.senderId)) {
+                    matchedWith.push({
+                        userId: requestData.senderId,
+                        userName: requestData.senderName,
+                        userColor: requestData.senderColor,
+                        matchedAt: new Date().toISOString()
+                    });
+                    await updateDoc(tradeRef, { matchedWith });
+                }
+            }
+        } else {
+            await updateDoc(reqRef, { status: 'rejected' });
+        }
+
+        res.json({ success: true, message: `İstek ${action === 'approve' ? 'onaylandı' : 'reddedildi'}.` });
+    } catch (err) {
+        console.error("POST /api/match-requests/:id/respond Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Trade Feed: Matches for a specific trade post
+app.get('/api/trades/:id/matches', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const tradeSnap = await getDoc(doc(db, DB_TRADES, id));
+        
+        if (!tradeSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Takas talebi bulunamadı.' });
+        }
+        
+        const trade = tradeSnap.data();
+        const requestedType = (trade.requestedType || '').toLowerCase();
+        const requestedDetails = (trade.requestedDetails || '').toLowerCase();
+        const requestedData = trade.requestedData || {};
+
+        // Normalization helper for better matching
+        const normalize = (str) => {
+            if (!str) return '';
+            return str.toLowerCase()
+                .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+                .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                .replace(/[^a-z0-9]/g, ' ')
+                .trim();
+        };
+
+        const reqTypeNorm = normalize(requestedType);
+        const reqRegNorm = normalize(requestedData.region);
+
+        // Fetch active listings
+        const recordsSnap = await getDocs(collection(db, DB_COLLECTION));
+        const matches = [];
+
+        recordsSnap.forEach(docSnap => {
+            const record = { id: docSnap.id, ...docSnap.data() };
+            if (record.status !== 'approved') return;
+
+            let score = 0;
+            const recMainCat = normalize(record.mainCategory || '');
+            const recSubCat = normalize(record.subCategory || '');
+            const recTitle = normalize(record.title || '');
+            const recLoc = normalize(record.location || '');
+            const props = record.properties || {};
+
+            // 1. Category Match (High Priority)
+            if (recSubCat === reqTypeNorm || recMainCat.includes(reqTypeNorm) || reqTypeNorm.includes(recSubCat)) {
+                score += 50;
+            } else if (reqTypeNorm === 'konut' && (recSubCat === 'daire' || recSubCat === 'villa' || recSubCat === 'rezidans')) {
+                score += 45; // Contextual mapping
+            } else if ((reqTypeNorm === 'arsa' || reqTypeNorm === 'arazi') && (recSubCat === 'tarla' || recSubCat === 'bahce' || recSubCat === 'arsa')) {
+                score += 45;
+            }
+
+            // 2. Location Match
+            if (reqRegNorm && recLoc.includes(reqRegNorm)) {
+                score += 35;
+            }
+
+            // 3. Structured Data Match
+            if (requestedData.rooms) {
+                const recRooms = props['Oda Sayısı'] || '';
+                if (recRooms && recRooms.includes(requestedData.rooms)) score += 20;
+            }
+
+            if (requestedData.sqm) {
+                const recSqm = parseInt(props['m² (Net)'] || props['m² (Brüt)'] || '0');
+                const reqSqm = parseInt(requestedData.sqm);
+                if (recSqm && reqSqm && Math.abs(recSqm - reqSqm) < (reqSqm * 0.2)) score += 15; // Within 20%
+            }
+
+            if (requestedData.fuel) {
+                const recFuel = normalize(props['Yakıt Tipi'] || '');
+                if (recFuel && recFuel.includes(normalize(requestedData.fuel))) score += 15;
+            }
+
+            if (requestedData.model) {
+                const recModel = normalize(props['Model'] || props['Seri'] || '');
+                if (recModel && recModel.includes(normalize(requestedData.model))) score += 20;
+            }
+
+            // 4. Keyword Match
+            if (requestedDetails) {
+                const keywords = normalize(requestedDetails).split(' ').filter(k => k.length > 2);
+                let keywordMatches = 0;
+                keywords.forEach(word => {
+                    if (recTitle.includes(word) || normalize(record.description || '').includes(word)) {
+                        keywordMatches++;
+                    }
+                });
+                score += (keywordMatches * 5);
+            }
+
+            if (score >= 40) { // Minimum threshold for "Smart Match"
+                matches.push({ ...record, matchScore: score });
+            }
+        });
+
+        matches.sort((a, b) => b.matchScore - a.matchScore);
+        res.json({ success: true, data: matches.slice(0, 15) });
+    } catch (err) {
+        console.error("GET /api/trades/:id/matches Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Trade Feed: Delete
+app.delete('/api/trades/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const docRef = doc(db, DB_TRADES, id);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+            return res.status(404).json({ success: false, error: 'Talep bulunamadı.' });
+        }
+
+        if (req.user.role !== 'admin' && docSnap.data().userId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Yetkisiz işlem.' });
+        }
+
+        await deleteDoc(docRef);
+        res.json({ success: true, message: 'Takas talebi silindi.' });
+    } catch (err) {
+        console.error("DELETE /api/trades Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // Announcements: List
 app.get('/api/announcements', authenticateToken, async (req, res) => {
     try {
@@ -2614,6 +2929,100 @@ app.get('/api/announcements', authenticateToken, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+// Excel List Management (Restructured for Workbooks)
+app.get('/api/excel-lists', authenticateToken, async (req, res) => {
+    try {
+        const q = query(collection(db, DB_EXCEL_LISTS), where("userId", "==", req.user.id));
+        const snap = await getDocs(q);
+        const lists = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Manual sort in JS
+        lists.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        
+        res.json({ success: true, data: lists });
+    } catch (err) {
+        console.error("GET /api/excel-lists Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/excel-lists', authenticateToken, async (req, res) => {
+    try {
+        const { fileName, sheets } = req.body;
+        if (!fileName || !sheets || !Array.isArray(sheets)) {
+            return res.status(400).json({ success: false, error: 'Eksik bilgi: Dosya adı ve sayfalar zorunludur.' });
+        }
+
+        const newWorkbook = {
+            userId: req.user.id,
+            userName: req.user.displayName || req.user.username,
+            listName: fileName, // Use fileName as listName for backward compatibility and sidebar
+            sheets: sheets.map(s => ({
+                name: s.name,
+                headers: s.headers,
+                data: s.data
+            })),
+            isWorkbook: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        const docRef = await addDoc(collection(db, DB_EXCEL_LISTS), newWorkbook);
+        res.json({ success: true, message: 'Çalışma kitabı kaydedildi', data: { id: docRef.id, ...newWorkbook } });
+    } catch (err) {
+        console.error("POST /api/excel-lists Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/excel-lists/:id', authenticateToken, async (req, res) => {
+    try {
+        const docRef = doc(db, DB_EXCEL_LISTS, req.params.id);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists() || docSnap.data().userId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Yetkisiz erişim veya bulunamadı.' });
+        }
+        res.json({ success: true, data: { id: docSnap.id, ...docSnap.data() } });
+    } catch (err) {
+        console.error("GET /api/excel-lists/:id Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.put('/api/excel-lists/:id', authenticateToken, async (req, res) => {
+    try {
+        const docRef = doc(db, DB_EXCEL_LISTS, req.params.id);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists() || docSnap.data().userId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Yetkisiz erişim.' });
+        }
+
+        const updates = { ...req.body, updatedAt: new Date().toISOString() };
+        await updateDoc(docRef, updates);
+        res.json({ success: true, message: 'Liste güncellendi' });
+    } catch (err) {
+        console.error("PUT /api/excel-lists/:id Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.delete('/api/excel-lists/:id', authenticateToken, async (req, res) => {
+    try {
+        const docRef = doc(db, DB_EXCEL_LISTS, req.params.id);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists() || docSnap.data().userId !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Yetkisiz erişim.' });
+        }
+
+        await deleteDoc(docRef);
+        res.json({ success: true, message: 'Liste silindi' });
+    } catch (err) {
+        console.error("DELETE /api/excel-lists/:id Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // Export the Express API for Vercel Serverless Functions
 module.exports = app;
 

@@ -51,7 +51,7 @@ function Admin() {
             const isEdit = !!editingUser;
             const url = isEdit
                 ? `${API_BASE_URL}/admin/users/${editingUser.id}`
-                : '${API_BASE_URL}/admin/users';
+                : `${API_BASE_URL}/admin/users`;
             const method = isEdit ? 'PUT' : 'POST';
 
             const response = await fetch(url, {

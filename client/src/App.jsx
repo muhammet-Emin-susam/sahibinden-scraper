@@ -19,6 +19,8 @@ import Collections from './pages/Collections';
 import Feed from './pages/Feed';
 import Layout from './components/Layout';
 import Messages from './pages/Messages';
+import Takas from './pages/Takas';
+import ExcelLists from './pages/ExcelLists';
 
 const ProtectedRoute = ({ children }) => {
     const { token, loading } = useContext(AuthContext);
@@ -146,10 +148,26 @@ function App() {
                         }
                     />
                     <Route
+                        path="/sayfalar/takas"
+                        element={
+                            <ProtectedRoute>
+                                <Takas />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
                         path="/sayfalar/mesajlar"
                         element={
                             <ProtectedRoute>
                                 <Messages />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/sayfalar/excel-listeleri"
+                        element={
+                            <ProtectedRoute>
+                                <ExcelLists />
                             </ProtectedRoute>
                         }
                     />
