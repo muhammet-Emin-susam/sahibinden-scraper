@@ -1330,7 +1330,7 @@ const Archive = () => {
                                                                     onChange={(e) => setEditStatusValue(e.target.value)}
                                                                     autoFocus
                                                                 >
-                                                                     <option value="">Seçiniz</option>
+                                                                    <option value="">Seçiniz</option>
                                                                     <option value="Aranacak">Aranacak</option>
                                                                     <option value="Arandı">Arandı</option>
                                                                     <option value="Ulaşılamadı">Ulaşılamadı</option>
@@ -1341,7 +1341,7 @@ const Archive = () => {
                                                                     <option value="Kapora Alındı">Kapora Alındı</option>
                                                                     <option value="Satıldı">Satıldı</option>
                                                                     <option value="Kiralandı">Kiralandı</option>
-                                                                     <option value="Sözleşme İmzalandı">Sözleşme İmzalandı</option>
+                                                                    <option value="Sözleşme İmzalandı">Sözleşme İmzalandı</option>
                                                                     <option value="Başka Emlakçıyla Çalışıyor">Başka Emlakçıyla Çalışıyor</option>
                                                                     <option value="Vazgeçildi">Vazgeçildi</option>
                                                                     <option value="İlgilenmiyor">İlgilenmiyor</option>

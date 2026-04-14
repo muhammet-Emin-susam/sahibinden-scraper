@@ -177,7 +177,7 @@ process.on('uncaughtException', (err) => {
 async function initializeAdminUser() {
     try {
         const usersRef = collection(db, DB_USERS);
-        
+
         // 1. Check if specific "admin" username exists
         const qAdmin = query(usersRef, where("username", "==", "admin"), limit(1));
         const adminSnapshot = await getDocs(qAdmin);
@@ -201,7 +201,7 @@ async function initializeAdminUser() {
             const primaryAdminId = adminSnapshot.docs[0].id;
             const qAllAdmins = query(usersRef, where("role", "==", "admin"));
             const allAdminsSnapshot = await getDocs(qAllAdmins);
-            
+
             if (allAdminsSnapshot.size > 1) {
                 console.log(`[SYSTEM] Found ${allAdminsSnapshot.size - 1} duplicate admin accounts. Cleaning up...`);
                 let deletedCount = 0;
@@ -776,6 +776,19 @@ app.put('/api/records/:id/approve', authenticateToken, async (req, res) => {
 
         const docSnap2 = await getDoc(docRef);
         const prevData = docSnap2.exists() ? docSnap2.data() : {};
+
+        const activeStatuses = ['Arandı', 'Ulaşılamadı', 'Düşünülecek'];
+        if (status_tag !== undefined) {
+            const isNowActive = activeStatuses.includes(status_tag);
+            const wasActive = activeStatuses.includes(prevData.status_tag);
+
+            if (isNowActive && !wasActive) {
+                updateData.arandiAt = new Date().toISOString();
+            } else if (!isNowActive && wasActive) {
+                updateData.arandiAt = deleteField();
+            }
+        }
+
         await updateDoc(docRef, updateData);
 
         await logActivity({
@@ -816,6 +829,18 @@ app.put('/api/records/:id/update', authenticateToken, async (req, res) => {
         const updateData = {};
         if (note !== undefined) updateData.note = note;
         if (status_tag !== undefined) updateData.status_tag = status_tag;
+
+        const activeStatuses = ['Arandı', 'Ulaşılamadı', 'Düşünülecek'];
+        if (status_tag !== undefined && status_tag !== prevData.status_tag) {
+            const isNowActive = activeStatuses.includes(status_tag);
+            const wasActive = activeStatuses.includes(prevData.status_tag);
+
+            if (isNowActive && !wasActive) {
+                updateData.arandiAt = new Date().toISOString();
+            } else if (!isNowActive && wasActive) {
+                updateData.arandiAt = deleteField();
+            }
+        }
 
         await updateDoc(docRef, updateData);
 
@@ -1461,9 +1486,9 @@ app.get('/api/demands', authenticateToken, async (req, res) => {
 
         // Filter: Own demands, Public demands, or Direct shares to current user
         if (req.user.role !== 'admin') {
-            items = items.filter(i => 
-                i.userId === req.user.id || 
-                i.shareType === 'public' || 
+            items = items.filter(i =>
+                i.userId === req.user.id ||
+                i.shareType === 'public' ||
                 (i.shareType === 'direct' && i.sharedWithIds?.includes(req.user.id))
             );
         }
@@ -1557,7 +1582,7 @@ app.post('/api/demands/:id/share', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { shareType, sharedWithIds } = req.body; // shareType: 'public', 'direct', 'private'
-        
+
         const docRef = doc(db, DB_DEMANDS, id);
         const docSnap = await getDoc(docRef);
 
@@ -1593,8 +1618,8 @@ app.get('/api/feed', authenticateToken, async (req, res) => {
         let items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
         // Filter: Public demands OR direct shares to current user (excluding own demands for feed)
-        items = items.filter(i => 
-            i.userId !== req.user.id && 
+        items = items.filter(i =>
+            i.userId !== req.user.id &&
             (i.shareType === 'public' || (i.shareType === 'direct' && i.sharedWithIds?.includes(req.user.id)))
         );
 
@@ -1651,7 +1676,7 @@ app.get('/api/messages/conversations', authenticateToken, async (req, res) => {
 
         // Filter and sort by date DESC
         allMessages = allMessages.filter(m => m.senderId === userId || m.receiverId === userId);
-        allMessages.sort((a,b) => (new Date(b.createdAt || 0)) - (new Date(a.createdAt || 0)));
+        allMessages.sort((a, b) => (new Date(b.createdAt || 0)) - (new Date(a.createdAt || 0)));
 
         const conversationsMap = new Map();
 
@@ -1706,14 +1731,14 @@ app.get('/api/messages/:demandId', authenticateToken, async (req, res) => {
         const { demandId } = req.params;
         const { otherUserId } = req.query;
         const snap = await getDocs(collection(db, DB_MESSAGES));
-        
+
         let messages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        
+
         // Filter by demandId in-memory to avoid index requirement
         messages = messages.filter(m => m.demandId === demandId);
-        
+
         // Sort in-memory to avoid index issues
-        messages.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+        messages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
         // Filter: Current user must be involved
         messages = messages.filter(m => m.senderId === req.user.id || m.receiverId === req.user.id);
@@ -1828,18 +1853,18 @@ app.get('/api/demands/:id/colleague-matches', authenticateToken, async (req, res
         // Fetch all active records belonging to OTHER users
         const recordsRef = collection(db, DB_COLLECTION);
         const recordsSnap = await getDocs(recordsRef);
-        
+
         const matches = [];
 
         recordsSnap.forEach(docSnap => {
             const record = { id: docSnap.id, ...docSnap.data() };
-            
+
             // Filter: Active, not already matched, belongs to a COLLEAGUE (other advisor)
             if (record.status !== 'approved' || matchedIds.includes(record.id) || !record.userId || record.userId === demand.userId) return;
-            
+
             // Matching Logic (Simplistic but effective version of suggestions logic)
             // usually you'd want at least transactionType and category to match
-            const recTransaction = record.mainCategory || ''; 
+            const recTransaction = record.mainCategory || '';
             const recType = record.subCategory || '';
 
             if (demand.transactionType && !recTransaction.includes(demand.transactionType)) return;
@@ -1848,7 +1873,7 @@ app.get('/api/demands/:id/colleague-matches', authenticateToken, async (req, res
             // Location check
             const recLocation = String(record.location || '').toLowerCase();
             const demandNeighborhoods = (demand.details?.selectedNeighborhoods || []).map(n => n.toLowerCase());
-            
+
             let locationMatch = false;
             if (demandNeighborhoods.length === 0) locationMatch = true; // No filter = all match
             else {
@@ -1893,15 +1918,15 @@ app.get('/api/demands/:id/suggestions', authenticateToken, async (req, res) => {
         // so we'll fetch all and filter in memory to avoid index creation issues right now)
         const recordsRef = collection(db, DB_COLLECTION);
         const recordsSnap = await getDocs(recordsRef);
-        
+
         const suggestions = [];
 
         recordsSnap.forEach(docSnap => {
             const record = { id: docSnap.id, ...docSnap.data() };
-            
+
             // Skip deleted and already matched listings
             if (record.status === 'deleted' || matchedIds.includes(record.id)) return;
-            
+
             let score = 0;
             let matchDetails = [];
 
@@ -1935,7 +1960,7 @@ app.get('/api/demands/:id/suggestions', authenticateToken, async (req, res) => {
                 if (demand.transactionType === 'Satılık' || demandMaxPrice > 500000) {
                     margin = 300000; // Fixed +/- 300,000 TL for sales/high value
                 }
-                
+
                 const minAcceptablePrice = demandMaxPrice - margin;
                 const maxAcceptablePrice = demandMaxPrice + margin;
 
@@ -1962,7 +1987,7 @@ app.get('/api/demands/:id/suggestions', authenticateToken, async (req, res) => {
                 for (const loc of demand.locations) {
                     const c = (loc.city || '').toLowerCase();
                     const d = (loc.district || '').toLowerCase();
-                    
+
                     if (recLocation.includes(c) && recLocation.includes(d)) {
                         // District match at least
                         if (loc.neighborhoods && loc.neighborhoods.length > 0) {
@@ -1971,7 +1996,7 @@ app.get('/api/demands/:id/suggestions', authenticateToken, async (req, res) => {
                                 const cleanN = n.toLowerCase().replace(' mah.', '').replace(' mah', '').trim();
                                 return recLocation.includes(cleanN);
                             });
-                            
+
                             if (hasMahalleMatch) {
                                 score += 40;
                                 matchDetails.push({ text: 'Tam Konum Eşleşmesi (Mahalle)', pts: 40 });
@@ -1992,7 +2017,7 @@ app.get('/api/demands/:id/suggestions', authenticateToken, async (req, res) => {
                         }
                     }
                 }
-                
+
                 // If demand has locations but this record matches NONE of them, filter it out.
                 if (!locationMatched) return;
             }
@@ -2000,7 +2025,7 @@ app.get('/api/demands/:id/suggestions', authenticateToken, async (req, res) => {
             // 4. Room Matching (Strict Filtering + 20 pts)
             const demandRooms = String(demand.details?.rooms || '').trim().toLowerCase();
             const recRooms = String(record.properties?.['Oda Sayısı'] || '').trim().toLowerCase();
-            
+
             if (demandRooms) {
                 // If a room count is specified, and the record has a room count, enforce EXACT match.
                 if (recRooms) {
@@ -2013,7 +2038,7 @@ app.get('/api/demands/:id/suggestions', authenticateToken, async (req, res) => {
                 } else {
                     // Record missing room count, penalize but keep maybe? Or filter?
                     // User asked for STRICKTER filtering. We'll filter out if missing and looking for Konut.
-                    if (demand.demandType === 'Konut') return; 
+                    if (demand.demandType === 'Konut') return;
                 }
             }
 
@@ -2611,12 +2636,12 @@ app.delete('/api/announcements/:id', authenticateToken, async (req, res) => {
 // Trade Feed: Create
 app.post('/api/trades', authenticateToken, async (req, res) => {
     try {
-        const { 
+        const {
             offeredType, offeredDetails, offeredData,
             requestedType, requestedDetails, requestedData,
-            quotedListing 
+            quotedListing
         } = req.body;
-        
+
         const newTrade = {
             userId: req.user.id,
             userName: req.user.displayName || req.user.username,
@@ -2633,7 +2658,7 @@ app.post('/api/trades', authenticateToken, async (req, res) => {
         };
 
         const docRef = await addDoc(collection(db, DB_TRADES), newTrade);
-        
+
         await logActivity({
             listingId: docRef.id,
             listingTitle: `Takas Talebi: ${offeredType} -> ${requestedType}`,
@@ -2691,8 +2716,8 @@ app.post('/api/trades/:id/match-request', authenticateToken, async (req, res) =>
 
         // Check if already requested
         const q = query(
-            collection(db, DB_TRADE_REQUESTS), 
-            where("tradeId", "==", id), 
+            collection(db, DB_TRADE_REQUESTS),
+            where("tradeId", "==", id),
             where("senderId", "==", req.user.id)
         );
         const existingSnap = await getDocs(q);
@@ -2757,14 +2782,14 @@ app.post('/api/match-requests/:id/respond', authenticateToken, async (req, res) 
 
         if (action === 'approve') {
             await updateDoc(reqRef, { status: 'approved' });
-            
+
             // Update the trade document to include the matched user
             const tradeRef = doc(db, DB_TRADES, requestData.tradeId);
             const tradeSnap = await getDoc(tradeRef);
             if (tradeSnap.exists()) {
                 const tradeData = tradeSnap.data();
                 const matchedWith = tradeData.matchedWith || [];
-                
+
                 // Add if not already present
                 if (!matchedWith.some(m => m.userId === requestData.senderId)) {
                     matchedWith.push({
@@ -2792,11 +2817,11 @@ app.get('/api/trades/:id/matches', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const tradeSnap = await getDoc(doc(db, DB_TRADES, id));
-        
+
         if (!tradeSnap.exists()) {
             return res.status(404).json({ success: false, error: 'Takas talebi bulunamadı.' });
         }
-        
+
         const trade = tradeSnap.data();
         const requestedType = (trade.requestedType || '').toLowerCase();
         const requestedDetails = (trade.requestedDetails || '').toLowerCase();
@@ -2936,10 +2961,10 @@ app.get('/api/excel-lists', authenticateToken, async (req, res) => {
         const q = query(collection(db, DB_EXCEL_LISTS), where("userId", "==", req.user.id));
         const snap = await getDocs(q);
         const lists = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
+
         // Manual sort in JS
         lists.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        
+
         res.json({ success: true, data: lists });
     } catch (err) {
         console.error("GET /api/excel-lists Error:", err);
@@ -2961,7 +2986,8 @@ app.post('/api/excel-lists', authenticateToken, async (req, res) => {
             sheets: sheets.map(s => ({
                 name: s.name,
                 headers: s.headers,
-                data: s.data
+                data: s.data,
+                styles: s.styles || {}
             })),
             isWorkbook: true,
             createdAt: new Date().toISOString(),

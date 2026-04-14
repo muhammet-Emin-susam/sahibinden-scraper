@@ -1450,7 +1450,7 @@ function SavedListings() {
                                                                     onChange={(e) => setEditStatusValue(e.target.value)}
                                                                     autoFocus
                                                                 >
-                                                                     <option value="">Seçiniz</option>
+                                                                    <option value="">Seçiniz</option>
                                                                     <option value="Aranacak">Aranacak</option>
                                                                     <option value="Arandı">Arandı</option>
                                                                     <option value="Ulaşılamadı">Ulaşılamadı</option>
@@ -1461,7 +1461,7 @@ function SavedListings() {
                                                                     <option value="Kapora Alındı">Kapora Alındı</option>
                                                                     <option value="Satıldı">Satıldı</option>
                                                                     <option value="Kiralandı">Kiralandı</option>
-                                                                     <option value="Sözleşme İmzalandı">Sözleşme İmzalandı</option>
+                                                                    <option value="Sözleşme İmzalandı">Sözleşme İmzalandı</option>
                                                                     <option value="Başka Emlakçıyla Çalışıyor">Başka Emlakçıyla Çalışıyor</option>
                                                                     <option value="Vazgeçildi">Vazgeçildi</option>
                                                                     <option value="İlgilenmiyor">İlgilenmiyor</option>
@@ -1488,10 +1488,10 @@ function SavedListings() {
                                                                                                     record.status_tag === 'Başka Emlakçıyla Çalışıyor' ? 'bg-slate-100 text-slate-800 border border-slate-200' :
                                                                                                         record.status_tag === 'Vazgeçildi' ? 'bg-zinc-100 text-zinc-800 border border-zinc-200' :
                                                                                                             record.status_tag === 'Satıldı' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
-                                                                                                        record.status_tag === 'Kiralandı' ? 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200' :
-                                                                                                            record.status_tag === 'İlgilenmiyor' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
-                                                                                                                record.status_tag === 'İptal' ? 'bg-red-100 text-red-800 border border-red-200' :
-                                                                                                                    'bg-gray-50 text-gray-600 border border-gray-200'
+                                                                                                                record.status_tag === 'Kiralandı' ? 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200' :
+                                                                                                                    record.status_tag === 'İlgilenmiyor' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
+                                                                                                                        record.status_tag === 'İptal' ? 'bg-red-100 text-red-800 border border-red-200' :
+                                                                                                                            'bg-gray-50 text-gray-600 border border-gray-200'
                                                                     }`}>
                                                                     {record.status_tag || 'Durum Yok'}
                                                                 </span>
