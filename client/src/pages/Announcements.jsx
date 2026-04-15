@@ -370,7 +370,9 @@ function Announcements() {
                                                         {(ann.quotedListing.location || ann.quotedListing.neighborhood) && (
                                                             <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                                                                 <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                                                {[ann.quotedListing.location, ann.quotedListing.neighborhood].filter(Boolean).join(' / ')}
+                                                                {ann.quotedListing.location && ann.quotedListing.location.includes('/') 
+                                                                    ? ann.quotedListing.location.split('/').pop().trim() 
+                                                                    : (ann.quotedListing.neighborhood || ann.quotedListing.location || '')}
                                                             </p>
                                                         )}
                                                     </div>
@@ -441,7 +443,13 @@ function Announcements() {
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-bold text-gray-900 truncate group-hover:text-indigo-600">{l.title}</p>
                                             <p className="text-xs text-indigo-600 font-semibold">{l.price}</p>
-                                            {(l.location || l.neighborhood) && <p className="text-xs text-gray-400 truncate">{l.location || l.neighborhood}</p>}
+                                            {(l.location || l.neighborhood) && (
+                                                <p className="text-xs text-gray-400 truncate">
+                                                    {l.location && l.location.includes('/') 
+                                                        ? l.location.split('/').pop().trim() 
+                                                        : (l.neighborhood || l.location || '')}
+                                                </p>
+                                            )}
                                         </div>
                                     </button>
                                 ))
@@ -558,7 +566,9 @@ function AnnouncementModal({ ann, onClose }) {
                                         <p className="text-sm font-bold text-indigo-600 mt-0.5">{ann.quotedListing.price}</p>
                                         {(ann.quotedListing.location || ann.quotedListing.neighborhood) && (
                                             <p className="text-xs text-gray-500 mt-0.5">
-                                                {[ann.quotedListing.location, ann.quotedListing.neighborhood].filter(Boolean).join(' / ')}
+                                                {ann.quotedListing.location && ann.quotedListing.location.includes('/') 
+                                                    ? ann.quotedListing.location.split('/').pop().trim() 
+                                                    : (ann.quotedListing.neighborhood || ann.quotedListing.location || '')}
                                             </p>
                                         )}
                                     </div>

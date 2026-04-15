@@ -19,9 +19,18 @@ function Demands() {
     const [demandType, setDemandType] = useState('Konut'); // Konut, Arsa, Ticari
     const [transactionType, setTransactionType] = useState('Satılık'); // Satılık, Kiralık
     const [availableLocations, setAvailableLocations] = useState({});
+    const [konyaData, setKonyaData] = useState({});
     const [selectedNeighborhoods, setSelectedNeighborhoods] = useState([]);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [expandedDistricts, setExpandedDistricts] = useState([]);
+    const [neighborhoodSearch, setNeighborhoodSearch] = useState('');
     const [details, setDetails] = useState({});
+
+    const toggleDistrict = (district) => {
+        setExpandedDistricts(prev => 
+            prev.includes(district) ? prev.filter(d => d !== district) : [...prev, district]
+        );
+    };
 
     // Suggestions states
     const [suggestions, setSuggestions] = useState([]);
@@ -75,21 +84,38 @@ function Demands() {
 
     const fetchAvailableLocations = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/records`, { headers: { 'Authorization': `Bearer ${token}` } });
+            // Fetch comprehensive Konya neighborhood data from GeoJSON
+            const res = await fetch(`${import.meta.env.BASE_URL}konya_mahalleler.geojson`);
             const data = await res.json();
-            if (data.success) {
-                const map = {};
-                data.data.forEach(r => {
-                    if (r.status === 'approved' && r.location) {
-                        const parts = r.location.split('/').map(p => p.trim());
-                        if (parts.length >= 3) {
-                            map[parts[2]] = { city: parts[0], district: parts[1], neighborhood: parts[2] };
+            
+            if (data && data.features) {
+                const grouped = {};
+                const flatMap = {};
+                
+                data.features.forEach(f => {
+                    const district = (f.properties.ilce || '').trim();
+                    const name = (f.properties.name || '').trim();
+                    
+                    if (district && name) {
+                        if (!grouped[district]) grouped[district] = [];
+                        if (!grouped[district].includes(name)) {
+                            grouped[district].push(name);
                         }
+                        // Use composite key for unique identification across districts
+                        const compositeKey = `${district} / ${name}`;
+                        flatMap[compositeKey] = { city: 'Konya', district, neighborhood: name };
                     }
                 });
-                setAvailableLocations(map);
+
+                // Sort neighborhoods within districts
+                Object.keys(grouped).forEach(d => {
+                    grouped[d].sort((a, b) => a.localeCompare(b, 'tr'));
+                });
+
+                setAvailableLocations(flatMap);
+                setKonyaData(grouped);
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Error fetching Konya locations:", e); }
     };
 
     useEffect(() => {
@@ -256,6 +282,14 @@ function Demands() {
 
     const handleCreateDemand = async (e) => {
         e.preventDefault();
+        if (saving) return;
+
+        // Ensure location data is loaded before saving
+        if (Object.keys(availableLocations).length === 0) {
+            alert('Mahalle verileri henüz yüklenmedi, lütfen bekleyin...');
+            return;
+        }
+
         setSaving(true);
         try {
             const groups = {};
@@ -301,6 +335,14 @@ function Demands() {
 
     const handleUpdateDemand = async (e) => {
         e.preventDefault();
+        if (saving) return;
+
+        // Ensure location data is loaded before saving
+        if (Object.keys(availableLocations).length === 0) {
+            alert('Mahalle verileri henüz yüklenmedi, lütfen bekleyin...');
+            return;
+        }
+
         setSaving(true);
         try {
             const groups = {};
@@ -481,8 +523,20 @@ const openEditModal = () => {
     const nList = [];
     if (selectedDemand.locations) {
         selectedDemand.locations.forEach(loc => {
+            const district = (loc.district || '').trim();
             if (loc.neighborhoods) {
-                nList.push(...loc.neighborhoods);
+                loc.neighborhoods.forEach(mah => {
+                    const mahName = (mah || '').trim();
+                    // First try perfect match with composite key
+                    const key = `${district} / ${mahName}`;
+                    if (availableLocations[key]) {
+                        nList.push(key);
+                    } else {
+                        // Fallback: try to find the neighborhood in availableLocations regardless of district if district is missing/mismatched
+                        // but only if it's a unique name or we find a close match
+                        nList.push(key); // Still push it, the UI will try to render it
+                    }
+                });
             }
         });
     }
@@ -570,6 +624,18 @@ return (
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                                 {demand.clientPhone || 'Belirtilmedi'}
                             </p>
+
+                            {/* Regions Summary on Card */}
+                            {demand.locations && demand.locations.length > 0 && (
+                                <div className="mb-4 flex flex-wrap gap-1.5">
+                                    {demand.locations.map((loc, idx) => (
+                                        <span key={idx} className="bg-gray-50 text-[10px] font-bold text-gray-500 px-2 py-0.5 rounded border border-gray-100 uppercase tracking-tighter">
+                                            {loc.district} ({loc.neighborhoods?.length || 0})
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
                             <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
                                 <span className="text-sm font-medium text-gray-600 flex items-center gap-2">
                                     Eşleşen İlan: <strong className="text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md shadow-sm">{demand.matchedListings?.length || 0}</strong>
@@ -684,28 +750,79 @@ return (
                                         {selectedNeighborhoods.length === 0 && <span className="text-gray-400 font-medium">Mahalle Seçin...</span>}
                                         {selectedNeighborhoods.map(n => (
                                             <span key={n} className="bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-2 py-1 rounded-lg text-xs flex items-center gap-1 shadow-sm">
-                                                {n}
+                                                {n.split(' / ').pop()}
                                                 <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedNeighborhoods(prev => prev.filter(x => x !== n)); }} className="hover:text-indigo-900">&times;</button>
                                             </span>
                                         ))}
                                     </div>
                                     {isDropdownOpen && (
-                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 shadow-xl rounded-xl max-h-60 overflow-y-auto custom-scrollbar">
-                                            {Object.keys(availableLocations).sort().map(n => (
-                                                <div
-                                                    key={n}
-                                                    className="flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-50 last:border-0"
-                                                    onClick={() => setSelectedNeighborhoods(prev => prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n])}
-                                                >
-                                                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedNeighborhoods.includes(n) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white'}`}>
-                                                        {selectedNeighborhoods.includes(n) && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
-                                                    </div>
-                                                    <span className={`text-sm ${selectedNeighborhoods.includes(n) ? 'font-bold text-indigo-900' : 'font-medium text-gray-700'}`}>{n}</span>
+                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 shadow-xl rounded-2xl max-h-80 overflow-hidden flex flex-col">
+                                            <div className="p-3 border-b border-gray-100 bg-gray-50/50">
+                                                <div className="relative">
+                                                    <input 
+                                                        type="text"
+                                                        placeholder="İlçe veya mahalle ara..."
+                                                        className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/50"
+                                                        value={neighborhoodSearch}
+                                                        onChange={(e) => setNeighborhoodSearch(e.target.value)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                    <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                                 </div>
-                                            ))}
-                                            {Object.keys(availableLocations).length === 0 && (
-                                                <div className="px-4 py-3 text-sm text-gray-500 font-medium text-center">Kaydedilenlerde uygun ilan (lokasyon) bulunmuyor.</div>
-                                            )}
+                                            </div>
+                                            <div className="overflow-y-auto flex-1 custom-scrollbar">
+                                                {Object.keys(konyaData).sort().map(district => {
+                                                    const neighborhoods = konyaData[district];
+                                                    const filteredNeighborhoods = neighborhoods.filter(n => 
+                                                        n.toLowerCase().includes(neighborhoodSearch.toLowerCase()) || 
+                                                        district.toLowerCase().includes(neighborhoodSearch.toLowerCase())
+                                                    );
+
+                                                    if (neighborhoodSearch && filteredNeighborhoods.length === 0) return null;
+
+                                                    const isExpanded = expandedDistricts.includes(district) || neighborhoodSearch.length > 0;
+
+                                                    return (
+                                                        <div key={district} className="border-b border-gray-50 last:border-0" onClick={(e) => e.stopPropagation()}>
+                                                            <div 
+                                                                className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 cursor-pointer bg-gray-50/30"
+                                                                onClick={() => toggleDistrict(district)}
+                                                            >
+                                                                <span className="text-sm font-black text-gray-900 flex items-center gap-2">
+                                                                    <svg className="w-4 h-4 text-indigo-50" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                                                                    {district}
+                                                                </span>
+                                                                <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                                            </div>
+                                                            {isExpanded && (
+                                                                <div className="bg-white">
+                                                                    {filteredNeighborhoods.map(n => (
+                                                                        <div
+                                                                            key={n}
+                                                                            className="flex items-center gap-3 px-8 py-2.5 hover:bg-indigo-50 cursor-pointer transition-colors"
+                                                                            onClick={() => {
+                                                                                const compositeKey = `${district} / ${n}`;
+                                                                                setSelectedNeighborhoods(prev => prev.includes(compositeKey) ? prev.filter(x => x !== compositeKey) : [...prev, compositeKey]);
+                                                                            }}
+                                                                        >
+                                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedNeighborhoods.includes(`${district} / ${n}`) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-200 bg-white'}`}>
+                                                                                {selectedNeighborhoods.includes(`${district} / ${n}`) && <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>}
+                                                                            </div>
+                                                                            <span className={`text-xs ${selectedNeighborhoods.includes(`${district} / ${n}`) ? 'font-bold text-indigo-900' : 'font-medium text-gray-600'}`}>{n}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                                {Object.keys(konyaData).length === 0 && (
+                                                    <div className="px-4 py-8 text-center">
+                                                        <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3"></div>
+                                                        <p className="text-xs text-gray-500 font-medium">Bölgeler yükleniyor...</p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -974,6 +1091,37 @@ return (
                                 <div className="mt-4 p-4 bg-orange-50 text-orange-900 rounded-xl text-sm border border-orange-100 shadow-sm">
                                     <strong className="block mb-1 text-xs uppercase tracking-wider text-orange-600">Ek Notlar / İhtiyaçlar:</strong>
                                     <div className="whitespace-pre-wrap">{selectedDemand.details.notes}</div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Selected Regions in View Mode */}
+                        <div className="p-6 border-b border-gray-100 bg-white">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                                İstenen Bölgeler
+                            </h4>
+                            {selectedDemand.locations && selectedDemand.locations.length > 0 ? (
+                                <div className="space-y-4">
+                                    {selectedDemand.locations.map((loc, idx) => (
+                                        <div key={idx} className="bg-gray-50/50 rounded-2xl p-4 border border-gray-100">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="text-sm font-black text-gray-900">{loc.district}</span>
+                                                <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter">İlçe</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {loc.neighborhoods?.map((mah, mIdx) => (
+                                                    <span key={mIdx} className="bg-white text-gray-700 text-xs font-bold px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm">
+                                                        {mah}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="bg-gray-50 rounded-2xl p-6 text-center border-2 border-dashed border-gray-100">
+                                    <p className="text-sm text-gray-400 font-medium italic">Bu talep için henüz bölge seçilmemiş.</p>
                                 </div>
                             )}
                         </div>

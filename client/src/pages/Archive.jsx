@@ -1319,7 +1319,9 @@ const Archive = () => {
                                                         {record.price}
                                                     </td>
                                                     <td className="p-4 text-gray-600 text-sm">
-                                                        {record.location}
+                                                        {record.location && record.location.includes('/') 
+                                                            ? record.location.split('/').pop().trim() 
+                                                            : record.location}
                                                     </td>
                                                     <td className="p-4 text-gray-800 text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                                         {editingStatusId === record.id ? (

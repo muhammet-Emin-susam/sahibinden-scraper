@@ -488,7 +488,11 @@ function EfdalAI() {
                                                     <p className="text-indigo-600 font-bold text-sm mt-1">{record.price}</p>
                                                     <div className="flex items-center gap-1 text-gray-500 text-xs mt-2">
                                                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                                        <span className="truncate">{record.location}</span>
+                                                        <span className="truncate">
+                                                            {record.location && record.location.includes('/') 
+                                                                ? record.location.split('/').pop().trim() 
+                                                                : record.location}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -513,7 +517,11 @@ function EfdalAI() {
                                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                                 <div>
                                                     <h2 className="text-xl font-bold text-gray-900 line-clamp-1">{selectedRecord.title}</h2>
-                                                    <p className="text-gray-500 text-sm mt-1">{selectedRecord.location} • {selectedRecord.price}</p>
+                                                    <p className="text-gray-500 text-sm mt-1">
+                                                        {selectedRecord.location && selectedRecord.location.includes('/') 
+                                                            ? selectedRecord.location.split('/').pop().trim() 
+                                                            : selectedRecord.location} • {selectedRecord.price}
+                                                    </p>
                                                 </div>
                                                 <div className="flex flex-wrap items-center gap-3">
                                                     {selectedRecord.aiAnalysis && (
@@ -925,7 +933,11 @@ function EfdalAI() {
                                             <p className="text-xs text-indigo-600 font-black mt-0.5">{l.price}</p>
                                             <div className="flex items-center gap-1.5 mt-1.5">
                                                 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
-                                                <p className="text-[10px] text-gray-400 font-bold truncate uppercase tracking-wider">{l.location}</p>
+                                                <p className="text-[10px] text-gray-400 font-bold truncate uppercase tracking-wider">
+                                                    {l.location && l.location.includes('/') 
+                                                        ? l.location.split('/').pop().trim() 
+                                                        : l.location}
+                                                </p>
                                             </div>
                                         </div>
                                     </button>

@@ -43,6 +43,9 @@ function SavedListings() {
     // Export Modal states
     const [showExportModal, setShowExportModal] = useState(false);
     const [exportType, setExportType] = useState('portfoy');
+    const [exportFilterMain, setExportFilterMain] = useState('Tümü');
+    const [exportFilterSub, setExportFilterSub] = useState('Tümü');
+    const [exportLimit, setExportLimit] = useState('Tümü');
 
     // Editing states
     const [editingNoteId, setEditingNoteId] = useState(null);
@@ -606,11 +609,27 @@ function SavedListings() {
 
     const getExcelDataPreview = () => {
         if (filteredRecords.length === 0) return [];
+        
         let dataToExport = filteredRecords;
+        
+        // Apply detailed export filters
+        if (exportFilterMain !== 'Tümü') {
+            dataToExport = dataToExport.filter(r => r.mainCategory === exportFilterMain);
+        }
+        
+        if (exportFilterSub !== 'Tümü') {
+            dataToExport = dataToExport.filter(r => r.subCategory === exportFilterSub);
+        }
+
+        // Apply quantity limit
+        if (exportLimit !== 'Tümü') {
+            dataToExport = dataToExport.slice(0, parseInt(exportLimit));
+        }
+
         let excelData = [];
 
         if (exportType === 'arsa') {
-            dataToExport = filteredRecords.filter(r => r.subCategory === 'Arsa');
+            dataToExport = dataToExport.filter(r => r.subCategory === 'Arsa');
             if (dataToExport.length === 0) return null; // Indicator for no data
             excelData = dataToExport.map(record => {
                 const props = record.properties || {};
@@ -639,7 +658,7 @@ function SavedListings() {
                 };
             });
         } else {
-            excelData = filteredRecords.map(record => {
+            excelData = dataToExport.map(record => {
                 const props = record.properties || {};
 
                 let sehir = '-';
@@ -956,11 +975,65 @@ function SavedListings() {
                                 </label>
 
                                 <label className={`cursor-pointer border-2 rounded-xl p-4 flex flex-col items-center gap-2 transition-all ${exportType === 'arsa' ? 'border-green-500 bg-green-50 shadow-sm' : 'border-gray-200 hover:border-green-200 hover:bg-gray-50'}`}>
-                                    <input type="radio" name="exportType" value="arsa" checked={exportType === 'arsa'} onChange={(e) => setExportType(e.target.value)} className="hidden" />
+                                    <input type="radio" name="exportType" value="arsa" checked={exportType === 'arsa'} onChange={(e) => { setExportType(e.target.value); setExportFilterSub('Arsa'); }} className="hidden" />
                                     <svg className={`w-8 h-8 ${exportType === 'arsa' ? 'text-green-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     <span className={`font-semibold text-sm ${exportType === 'arsa' ? 'text-green-800' : 'text-gray-600'}`}>Arsa Listesi</span>
                                     <span className="text-[10px] text-center text-gray-500">Sadece arsalar ve arsa sütunları</span>
                                 </label>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 flex-shrink-0 grid md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">İşlem Tipi Filtresi</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {['Tümü', 'Satılık', 'Kiralık'].map(cat => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => setExportFilterMain(cat)}
+                                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${exportFilterMain === cat ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'bg-white text-gray-500 border border-gray-100 hover:border-gray-200'}`}
+                                        >
+                                            {cat}
+                                            <span className="ml-1.5 opacity-60 font-medium text-[10px]">
+                                                ({cat === 'Tümü' ? filteredRecords.length : filteredRecords.filter(r => r.mainCategory === cat).length})
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Kategori Filtresi</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {['Tümü', 'Konut', 'Arsa', 'Ticari'].map(cat => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => {
+                                                setExportFilterSub(cat);
+                                                if (cat !== 'Arsa' && exportType === 'arsa') setExportType('portfoy');
+                                            }}
+                                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${exportFilterSub === cat ? 'bg-emerald-600 text-white shadow-md shadow-emerald-100' : 'bg-white text-gray-500 border border-gray-100 hover:border-gray-200'}`}
+                                        >
+                                            {cat}
+                                            <span className="ml-1.5 opacity-60 font-medium text-[10px]">
+                                                ({cat === 'Tümü' ? filteredRecords.length : filteredRecords.filter(r => r.subCategory === cat).length})
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="md:col-span-2 lg:col-span-1">
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">İndirilecek Kayıt Sayısı</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {['20', '40', '100', 'Tümü'].map(limit => (
+                                        <button
+                                            key={limit}
+                                            onClick={() => setExportLimit(limit)}
+                                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${exportLimit === limit ? 'bg-amber-500 text-white shadow-md shadow-amber-100' : 'bg-white text-gray-500 border border-gray-100 hover:border-gray-200'}`}
+                                        >
+                                            {limit === 'Tümü' ? 'Hepsi' : limit}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
@@ -999,7 +1072,7 @@ function SavedListings() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 bg-white">
-                                            {previewData.slice(0, 5).map((row, i) => (
+                                            {previewData.map((row, i) => (
                                                 <tr key={i} className="hover:bg-green-50/30">
                                                     {previewColumns.map((col, j) => (
                                                         <td key={j} className="p-3 text-sm text-gray-600 max-w-[200px] truncate" title={row[col]}>
@@ -1439,7 +1512,9 @@ function SavedListings() {
                                                         {record.price}
                                                     </td>
                                                     <td className="p-4 text-gray-600 text-sm">
-                                                        {record.location}
+                                                        {record.location && record.location.includes('/')
+                                                            ? record.location.split('/').pop().trim()
+                                                            : record.location}
                                                     </td>
                                                     <td className="p-4 text-gray-800 text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                                         {editingStatusId === record.id ? (
