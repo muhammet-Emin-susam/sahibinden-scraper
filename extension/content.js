@@ -418,23 +418,14 @@ async function injectButton() {
     const btn = document.createElement('button');
     btn.id = 'sahibinden-scraper-btn';
 
-    const tradeBtn = document.createElement('button');
-    tradeBtn.id = 'sahibinden-scraper-trade-btn';
-    tradeBtn.title = 'Takas Sayfasına Ekle';
-
     const updateButtonState = async () => {
         const { auth_user } = await chrome.storage.local.get(['auth_user']);
         if (auth_user) {
-            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> ${auth_user.username} - Kaydet`;
+            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg><span class="btn-text">${auth_user.username} - Kaydet</span>`;
             btn.className = 'logged-in';
-            
-            tradeBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"></path><path d="M20 7H4"></path><path d="m8 21-4-4 4-4"></path><path d="M4 17h16"></path></svg> Takaslı Ekle`;
-            tradeBtn.className = 'logged-in';
-            tradeBtn.style.display = 'flex';
         } else {
-            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Giriş Bekleniyor`;
+            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><span class="btn-text">Giriş Bekleniyor</span>`;
             btn.className = 'logged-out';
-            tradeBtn.style.display = 'none';
         }
     };
 
@@ -457,7 +448,7 @@ async function injectButton() {
         const originalHtml = targetBtn.innerHTML;
         const originalClass = targetBtn.className;
 
-        targetBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="animate-spin" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg> Kaydediliyor...';
+        targetBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="animate-spin" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span class="btn-text">Kaydediliyor...</span>';
         targetBtn.disabled = true;
 
         const sendSaveRequest = async (saveData) => {
@@ -474,12 +465,12 @@ async function injectButton() {
                             <div class="duplicate-prompt">
                                 <span class="prompt-text">Bu ilan zaten ekli.<br>Yine de eklensin mi?</span>
                                 <label class="prompt-text" style="font-size: 11px; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer;">
-                                    <input type="checkbox" id="chk-overwrite" checked />
+                                    <input type="checkbox" class="chk-overwrite" checked />
                                     Mevcut kaydın üzerine yaz
                                 </label>
                                 <div class="prompt-actions">
-                                    <div id="btn-force-save" class="btn-yes">Evet Ekle</div>
-                                    <div id="btn-cancel-save" class="btn-no">İptal Et</div>
+                                    <div class="btn-force-save btn-yes">Evet Ekle</div>
+                                    <div class="btn-cancel-save btn-no">İptal Et</div>
                                 </div>
                             </div>
                         `;
@@ -488,11 +479,20 @@ async function injectButton() {
 
                         // Stop regular flow because we are waiting for user click
                         return new Promise((resolve, reject) => {
-                            document.getElementById('btn-force-save').onclick = async (e) => {
-                                e.stopPropagation();
-                                const isOverwrite = document.getElementById('chk-overwrite')?.checked || false;
+                            const promptContainer = targetBtn.querySelector('.duplicate-prompt');
+                            if (promptContainer) {
+                                promptContainer.onclick = (e) => {
+                                    // Prevent the click from bubbling to targetBtn which would re-trigger handleSave
+                                    e.stopPropagation();
+                                };
+                            }
 
-                                targetBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="animate-spin" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg> Zorlayarak Kaydediliyor...';
+                            targetBtn.querySelector('.btn-force-save').onclick = async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const isOverwrite = targetBtn.querySelector('.chk-overwrite')?.checked || false;
+
+                                targetBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="animate-spin" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span class="btn-text">Zorlayarak Kaydediliyor...</span>';
                                 targetBtn.className = originalClass;
                                 targetBtn.disabled = true;
                                 try {
@@ -502,7 +502,8 @@ async function injectButton() {
                                     reject(err);
                                 }
                             };
-                            document.getElementById('btn-cancel-save').onclick = (e) => {
+                            targetBtn.querySelector('.btn-cancel-save').onclick = (e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 targetBtn.innerHTML = originalHtml;
                                 targetBtn.className = originalClass;
@@ -513,7 +514,7 @@ async function injectButton() {
                     throw new Error(response.data.message || response.data.error || 'Sunucu hatası');
                 }
 
-                targetBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Kaydedildi!';
+                targetBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="btn-text">Kaydedildi!</span>';
                 targetBtn.className = 'success';
                 setTimeout(() => {
                     targetBtn.innerHTML = originalHtml;
@@ -527,18 +528,6 @@ async function injectButton() {
 
         try {
             const data = await scrapeData();
-            if (isTrade) {
-                const hasTradeProperty = data.properties['Takas'] === 'Evet';
-                if (!hasTradeProperty) {
-                    if (!confirm("İlan takaslı görünmüyor. Emin misiniz?")) {
-                        targetBtn.innerHTML = originalHtml;
-                        targetBtn.className = originalClass;
-                        targetBtn.disabled = false;
-                        return;
-                    }
-                }
-                data.isTrade = true;
-            }
 
             const targetApiUrl = await new Promise(r => chrome.storage.local.get(['api_url'], result => r(result.api_url || 'https://emlak.altaydev.com.tr')));
             console.log(`[EXTENSION] Target API: ${targetApiUrl}`);
@@ -552,7 +541,7 @@ async function injectButton() {
                 await updateButtonState();
                 return;
             }
-            targetBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Hata!';
+            targetBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span class="btn-text">Hata!</span>';
             targetBtn.className = 'error';
             alert("Kaydedilemedi: " + err.message);
             setTimeout(() => {
@@ -563,11 +552,68 @@ async function injectButton() {
         }
     };
 
-    btn.onclick = () => handleSave(btn, false);
-    tradeBtn.onclick = () => handleSave(tradeBtn, true);
+    // Make the container draggable
+    let isDragging = false;
+    let hasMoved = false;
+    let startMouseX = 0, startMouseY = 0;
+    let startContainerX = 0, startContainerY = 0;
+
+    container.addEventListener('mousedown', (e) => {
+        // Prevent dragging if interacting with the prompt
+        if (e.target.closest('.duplicate-prompt')) return;
+
+        isDragging = true;
+        hasMoved = false;
+        
+        startMouseX = e.clientX;
+        startMouseY = e.clientY;
+        
+        const rect = container.getBoundingClientRect();
+        startContainerX = rect.left;
+        startContainerY = rect.top;
+
+        // Switch to explicit positioning to allow dragging freely
+        container.style.right = 'auto';
+        container.style.bottom = 'auto';
+        container.style.left = startContainerX + 'px';
+        container.style.top = startContainerY + 'px';
+        
+        e.preventDefault(); // Prevent text selection
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const dx = e.clientX - startMouseX;
+        const dy = e.clientY - startMouseY;
+
+        // Threshold to distinguish between a click and a drag
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+            hasMoved = true;
+        }
+
+        container.style.left = (startContainerX + dx) + 'px';
+        container.style.top = (startContainerY + dy) + 'px';
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+        }
+    });
+
+    btn.onclick = (e) => {
+        if (hasMoved) {
+            // Cancel click action because it was a drag gesture
+            e.preventDefault();
+            e.stopPropagation();
+            hasMoved = false;
+            return;
+        }
+        handleSave(btn, false);
+    };
 
     container.appendChild(btn);
-    container.appendChild(tradeBtn);
     document.body.appendChild(container);
 }
 

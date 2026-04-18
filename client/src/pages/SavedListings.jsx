@@ -2,7 +2,6 @@ import React, { useState, useEffect, useContext } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { AuthContext } from '../contexts/AuthContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { tr } from 'date-fns/locale';
 import { API_BASE_URL } from '../config';
@@ -609,14 +608,14 @@ function SavedListings() {
 
     const getExcelDataPreview = () => {
         if (filteredRecords.length === 0) return [];
-        
+
         let dataToExport = filteredRecords;
-        
+
         // Apply detailed export filters
         if (exportFilterMain !== 'Tümü') {
             dataToExport = dataToExport.filter(r => r.mainCategory === exportFilterMain);
         }
-        
+
         if (exportFilterSub !== 'Tümü') {
             dataToExport = dataToExport.filter(r => r.subCategory === exportFilterSub);
         }
@@ -1418,22 +1417,19 @@ function SavedListings() {
                                             <th className="p-4 w-12 text-center lg:rounded-tl-3xl">P.Ö</th>
                                             <th className="p-4 w-24 text-center">GÖRSEL</th>
                                             <th className="p-4">BAŞLIK</th>
-                                            <th className="p-4">KATEGORİ</th>
                                             <th className="p-4">FİYAT</th>
-                                            <th className="p-4">KONUM</th>
                                             <th className="p-4">DURUM</th>
                                             {user?.role === 'admin' && <th className="p-4">EKLEYEN</th>}
-                                            <th className="p-4">TARİH</th>
-                                            <th className="p-4 w-24 text-right lg:rounded-tr-3xl">İşlemler</th>
+                                            <th className="p-4 min-w-[160px] text-center lg:rounded-tr-3xl sticky right-0 bg-gray-50 z-20">İşlemler</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody className="bg-white">
                                         {currentRecords.map((record, index) => (
                                             <React.Fragment key={record.id}>
                                                 <tr
                                                     id={`record-${record.id}`}
                                                     onClick={() => toggleExpand(record.id)}
-                                                    className={`cursor-pointer transition-colors group relative ${expandedRecordId === record.id ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}
+                                                    className={`cursor-pointer transition-colors group relative border-b border-gray-100 ${expandedRecordId === record.id ? 'bg-[#f4f8fb]' : 'bg-white hover:bg-gray-50'}`}
                                                 >
                                                     <td className="p-4 text-center relative" onClick={(e) => e.stopPropagation()}>
                                                         {/* Row Number Outside - Centered Vertically */}
@@ -1457,10 +1453,48 @@ function SavedListings() {
                                                             <div className="w-16 h-12 bg-gray-100 rounded-md border border-gray-200 mx-auto flex items-center justify-center text-xs font-bold text-gray-400">Yok</div>
                                                         )}
                                                     </td>
-                                                    <td className="p-4">
-                                                        <div className="font-semibold text-gray-900 line-clamp-2">{record.title}</div>
-                                                        {record.properties && record.properties['İlan No'] && (
-                                                            <div className="text-xs text-gray-500 mt-1">#{record.properties['İlan No']}</div>
+                                                    <td className="p-4 min-w-[250px] max-w-[400px]">
+                                                        <div className="flex flex-wrap gap-1.5 mb-2">
+                                                            {record.mainCategory && (
+                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase w-fit ${record.mainCategory === 'Satılık' ? 'bg-indigo-100 text-indigo-700' :
+                                                                    record.mainCategory === 'Kiralık' ? 'bg-orange-100 text-orange-700' :
+                                                                        record.mainCategory === 'Günlük Kiralık' ? 'bg-purple-100 text-purple-700' :
+                                                                            String(record.mainCategory || '').includes('Devren') ? 'bg-amber-100 text-amber-700' :
+                                                                                record.mainCategory === 'Kat Karşılığı' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                    'bg-gray-100 text-gray-600'
+                                                                    }`}>
+                                                                    {record.mainCategory}
+                                                                </span>
+                                                            )}
+                                                            {record.subCategory && (
+                                                                <span className="px-2 py-0.5 rounded bg-gray-50 text-gray-500 text-[10px] font-medium border border-gray-100 w-fit">
+                                                                    {record.subCategory}
+                                                                </span>
+                                                            )}
+                                                            {record.location && (
+                                                                <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium border border-blue-100 w-fit flex items-center gap-1">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                                                    {record.location.includes('/') ? record.location.split('/').pop().trim() : record.location}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        <div style={{
+                                                            fontWeight: 500,
+                                                            fontSize: '15px',
+                                                        }} className="font-semibold text-gray-900 line-clamp-2 leading-tight">{record.title}</div>
+                                                        {record.properties && (
+                                                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                                {record.properties['İlan No'] && (
+                                                                    <div className="text-xs text-gray-500 font-medium">#{record.properties['İlan No']}</div>
+                                                                )}
+                                                                {(record.properties['Ada'] || record.properties['Ada No'] || record.properties['Parsel'] || record.properties['Parsel No']) && (
+                                                                    <div className="flex items-center gap-1.5 bg-gray-100/80 border border-gray-200 px-2 py-0.5 rounded text-[11px] font-bold text-gray-700">
+                                                                        <svg className="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7l6-3 5.447 2.724A1 1 0 0121 7.618v10.764a1 1 0 01-1.447.894L15 17l-6 3z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20V7m6 10V4"></path></svg>
+                                                                        Ada: {record.properties['Ada'] || record.properties['Ada No'] || '-'} <span className="text-gray-300 mx-0.5">/</span> Parsel: {record.properties['Parsel'] || record.properties['Parsel No'] || '-'}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         )}
                                                         {(record.sellerName || record.sellerPhone || record.officeName) && (
                                                             <div className="text-[11px] text-gray-500 mt-1.5 space-y-0.5 bg-gray-50 p-1.5 rounded border border-gray-100 w-max pr-4">
@@ -1483,38 +1517,13 @@ function SavedListings() {
                                                                 )}
                                                             </div>
                                                         )}
-                                                        <a href={record.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[11px] font-semibold text-blue-500 hover:underline mt-1.5 block flex items-center gap-1">
+                                                        <a href={record.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="w-fit text-[11px] font-semibold text-blue-500 hover:underline mt-1.5 block flex items-center gap-1">
                                                             İlana Git
                                                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                                         </a>
                                                     </td>
-                                                    <td className="p-4 whitespace-nowrap">
-                                                        <div className="flex flex-col gap-1">
-                                                            {record.mainCategory && (
-                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase w-fit ${record.mainCategory === 'Satılık' ? 'bg-indigo-100 text-indigo-700' :
-                                                                    record.mainCategory === 'Kiralık' ? 'bg-orange-100 text-orange-700' :
-                                                                        record.mainCategory === 'Günlük Kiralık' ? 'bg-purple-100 text-purple-700' :
-                                                                            String(record.mainCategory || '').includes('Devren') ? 'bg-amber-100 text-amber-700' :
-                                                                                record.mainCategory === 'Kat Karşılığı' ? 'bg-emerald-100 text-emerald-700' :
-                                                                                    'bg-gray-100 text-gray-600'
-                                                                    }`}>
-                                                                    {record.mainCategory}
-                                                                </span>
-                                                            )}
-                                                            {record.subCategory && (
-                                                                <span className="px-2 py-0.5 rounded bg-gray-50 text-gray-500 text-[10px] font-medium border border-gray-100 w-fit">
-                                                                    {record.subCategory}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-4 font-bold text-indigo-600 whitespace-nowrap">
+                                                    <td className="p-4 font-bold text-indigo-600 min-w-[120px]">
                                                         {record.price}
-                                                    </td>
-                                                    <td className="p-4 text-gray-600 text-sm">
-                                                        {record.location && record.location.includes('/')
-                                                            ? record.location.split('/').pop().trim()
-                                                            : record.location}
                                                     </td>
                                                     <td className="p-4 text-gray-800 text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                                         {editingStatusId === record.id ? (
@@ -1550,100 +1559,105 @@ function SavedListings() {
                                                                 </button>
                                                             </div>
                                                         ) : (
-                                                            <div className="flex items-center gap-2 group/status">
-                                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${record.status_tag === 'Aranacak' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                                                                    record.status_tag === 'Arandı' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                                                                        record.status_tag === 'Ulaşılamadı' ? 'bg-gray-100 text-gray-800 border border-gray-200' :
-                                                                            record.status_tag === 'Geri Dönüş Bekleniyor' ? 'bg-cyan-100 text-cyan-800 border border-cyan-200' :
-                                                                                record.status_tag === 'Müşteriyle Görüşüldü' ? 'bg-sky-100 text-sky-800 border border-sky-200' :
-                                                                                    record.status_tag === 'Randevu Alındı' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                                                                                        record.status_tag === 'Teklif Verildi' ? 'bg-violet-100 text-violet-800 border border-violet-200' :
-                                                                                            record.status_tag === 'Kapora Alındı' ? 'bg-lime-100 text-lime-800 border border-lime-200' :
-                                                                                                record.status_tag === 'Sözleşme İmzalandı' ? 'bg-teal-100 text-teal-800 border border-teal-200' :
-                                                                                                    record.status_tag === 'Başka Emlakçıyla Çalışıyor' ? 'bg-slate-100 text-slate-800 border border-slate-200' :
-                                                                                                        record.status_tag === 'Vazgeçildi' ? 'bg-zinc-100 text-zinc-800 border border-zinc-200' :
-                                                                                                            record.status_tag === 'Satıldı' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
-                                                                                                                record.status_tag === 'Kiralandı' ? 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200' :
-                                                                                                                    record.status_tag === 'İlgilenmiyor' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
-                                                                                                                        record.status_tag === 'İptal' ? 'bg-red-100 text-red-800 border border-red-200' :
-                                                                                                                            'bg-gray-50 text-gray-600 border border-gray-200'
-                                                                    }`}>
-                                                                    {record.status_tag || 'Durum Yok'}
-                                                                </span>
-                                                                <button onClick={(e) => { e.stopPropagation(); setEditingStatusId(record.id); setEditStatusValue(record.status_tag || ''); }} className="opacity-0 group-hover/status:opacity-100 text-gray-400 hover:text-blue-600 p-1 transition-all rounded" title="Durumu Güncelle">
-                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                                                </button>
+                                                            <div className="flex flex-col items-start gap-1.5 group/status">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${record.status_tag === 'Aranacak' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                                                        record.status_tag === 'Arandı' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                                                            record.status_tag === 'Ulaşılamadı' ? 'bg-gray-100 text-gray-800 border border-gray-200' :
+                                                                                record.status_tag === 'Geri Dönüş Bekleniyor' ? 'bg-cyan-100 text-cyan-800 border border-cyan-200' :
+                                                                                    record.status_tag === 'Müşteriyle Görüşüldü' ? 'bg-sky-100 text-sky-800 border border-sky-200' :
+                                                                                        record.status_tag === 'Randevu Alındı' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                                                                                            record.status_tag === 'Teklif Verildi' ? 'bg-violet-100 text-violet-800 border border-violet-200' :
+                                                                                                record.status_tag === 'Kapora Alındı' ? 'bg-lime-100 text-lime-800 border border-lime-200' :
+                                                                                                    record.status_tag === 'Sözleşme İmzalandı' ? 'bg-teal-100 text-teal-800 border border-teal-200' :
+                                                                                                        record.status_tag === 'Başka Emlakçıyla Çalışıyor' ? 'bg-slate-100 text-slate-800 border border-slate-200' :
+                                                                                                            record.status_tag === 'Vazgeçildi' ? 'bg-zinc-100 text-zinc-800 border border-zinc-200' :
+                                                                                                                record.status_tag === 'Satıldı' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
+                                                                                                                    record.status_tag === 'Kiralandı' ? 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200' :
+                                                                                                                        record.status_tag === 'İlgilenmiyor' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
+                                                                                                                            record.status_tag === 'İptal' ? 'bg-red-100 text-red-800 border border-red-200' :
+                                                                                                                                'bg-gray-50 text-gray-600 border border-gray-200'
+                                                                        }`}>
+                                                                        {record.status_tag || 'Durum Yok'}
+                                                                    </span>
+                                                                    <button onClick={(e) => { e.stopPropagation(); setEditingStatusId(record.id); setEditStatusValue(record.status_tag || ''); }} className="opacity-0 group-hover/status:opacity-100 text-gray-400 hover:text-blue-600 p-1 transition-all rounded" title="Durumu Güncelle">
+                                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                                                    </button>
+                                                                </div>
+                                                                <div className="flex gap-2 text-[11px] text-gray-400 font-medium">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                                        {new Date(record.scrapedAt).toLocaleDateString('tr-TR')}
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                                        {new Date(record.scrapedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </td>
                                                     {user?.role === 'admin' && (
-                                                        <td className="p-4 text-gray-800 text-sm font-medium">
+                                                        <td className="p-4 text-gray-800 text-sm font-medium border-b border-gray-100">
                                                             <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-md text-xs whitespace-nowrap inline-block">{record.displayName || record.username || 'Bilinmiyor'}</span>
                                                         </td>
                                                     )}
-                                                    <td className="p-4 text-gray-400 text-xs whitespace-nowrap">
-                                                        {new Date(record.scrapedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                                                        <br />
-                                                        {new Date(record.scrapedAt).toLocaleDateString('tr-TR')}
-                                                    </td>
-                                                    <td className="p-4 text-right relative">
-                                                        <div className="flex items-center justify-end gap-2 pr-2">
-                                                            <button
-                                                                onClick={(e) => handleDeleteRecord(e, record.id)}
-                                                                className="text-gray-400 hover:text-red-500 p-1.5 transition-colors rounded-md hover:bg-red-50"
-                                                                title="Sil"
-                                                            >
-                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                                            </button>
-                                                            <button className="text-gray-400 ml-1">
-                                                                <svg className={`w-5 h-5 transform transition-transform ${expandedRecordId === record.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                                            </button>
-                                                        </div>
-                                                        {/* ACTION BUTTONS WRAPPER - ABSOLUTE OUTSIDE */}
-                                                        <div className="absolute inset-y-0 -right-36 md:-right-48 w-36 md:w-48 flex items-center justify-center gap-1 md:gap-2 z-50">
-                                                            <button
-                                                                onClick={(e) => handleOpenDemandModal(e, record)}
-                                                                className={`flex items-center justify-center w-8 h-8 md:w-10 md:h-10 transition-all duration-300 rounded-full text-gray-400 hover:text-indigo-600 hover:scale-110 hover:bg-black/5 cursor-pointer ${expandedRecordId === record.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                                                title="Talebe Ekle"
-                                                            >
-                                                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => handleCollectRecord(e, record)}
-                                                                disabled={collectingId === record.id}
-                                                                className={`flex items-center justify-center w-8 h-8 md:w-10 md:h-10 transition-all duration-300 rounded-full ${collectingId === record.id ? 'text-indigo-500 opacity-100 cursor-wait' : 'text-gray-400 hover:text-indigo-600 hover:scale-110 hover:bg-black/5 cursor-pointer'} ${expandedRecordId === record.id || collectingId === record.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                                                title="Koleksiyona Ekle"
-                                                            >
-                                                                {collectingId === record.id ? (
-                                                                    <svg className="w-4 h-4 md:w-5 md:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                    </svg>
-                                                                ) : (
-                                                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
-                                                                )}
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => handleArchiveRecord(e, record)}
-                                                                disabled={archivingId === record.id}
-                                                                className={`flex items-center justify-center w-8 h-8 md:w-10 md:h-10 transition-all duration-300 rounded-full ${archivingId === record.id ? 'text-amber-500 opacity-100 cursor-wait' : 'text-gray-400 hover:text-amber-600 hover:scale-110 hover:bg-black/5 cursor-pointer'} ${expandedRecordId === record.id || archivingId === record.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                                                title="İlanı Arşivle"
-                                                            >
-                                                                {archivingId === record.id ? (
-                                                                    <svg className="w-4 h-4 md:w-5 md:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                    </svg>
-                                                                ) : (
-                                                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
-                                                                )}
-                                                            </button>
+                                                    <td className={`p-4 text-center relative sticky right-0 z-10 transition-colors border-b border-gray-100 ${expandedRecordId === record.id ? 'bg-[#f4f8fb]' : 'bg-white group-hover:bg-gray-50'}`}>
+                                                        {/* ACTION BUTTONS WRAPPER - HOVER */}
+                                                        <div className={`flex items-center justify-center transition-all duration-300 transform scale-95 opacity-0 pointer-events-none z-50 ${expandedRecordId === record.id ? 'opacity-100 scale-100 pointer-events-auto' : 'group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto'}`}>
+                                                            <div className="flex items-center gap-1 md:gap-1.5 bg-white/90 backdrop-blur-sm px-2.5 py-1.5 rounded-full shadow-lg border border-gray-100/80 mx-auto w-max">
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleOpenDemandModal(e, record); }}
+                                                                    className={`flex items-center justify-center w-8 h-8 transition-all duration-300 rounded-full text-gray-500 hover:text-indigo-600 hover:scale-110 hover:bg-black/5 cursor-pointer`}
+                                                                    title="Talebe Ekle"
+                                                                >
+                                                                    <svg className="w-4 h-4 md:w-[18px] md:h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleCollectRecord(e, record); }}
+                                                                    disabled={collectingId === record.id}
+                                                                    className={`flex items-center justify-center w-8 h-8 transition-all duration-300 rounded-full ${collectingId === record.id ? 'text-indigo-500 opacity-100 cursor-wait' : 'text-gray-500 hover:text-indigo-600 hover:scale-110 hover:bg-black/5 cursor-pointer'}`}
+                                                                    title="Koleksiyona Ekle"
+                                                                >
+                                                                    {collectingId === record.id ? (
+                                                                        <svg className="w-4 h-4 md:w-[18px] md:h-[18px] animate-spin" fill="none" viewBox="0 0 24 24">
+                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                        </svg>
+                                                                    ) : (
+                                                                        <svg className="w-4 h-4 md:w-[18px] md:h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+                                                                    )}
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleArchiveRecord(e, record); }}
+                                                                    disabled={archivingId === record.id}
+                                                                    className={`flex items-center justify-center w-8 h-8 transition-all duration-300 rounded-full ${archivingId === record.id ? 'text-amber-500 opacity-100 cursor-wait' : 'text-gray-500 hover:text-amber-600 hover:scale-110 hover:bg-black/5 cursor-pointer'}`}
+                                                                    title="İlanı Arşivle"
+                                                                >
+                                                                    {archivingId === record.id ? (
+                                                                        <svg className="w-4 h-4 md:w-[18px] md:h-[18px] animate-spin" fill="none" viewBox="0 0 24 24">
+                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                        </svg>
+                                                                    ) : (
+                                                                        <svg className="w-4 h-4 md:w-[18px] md:h-[18px]" fill="none" stroke="currentColor" viewBox="0 2 20 20"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                                                                    )}
+                                                                </button>
+                                                                <div className="w-[1px] h-4 bg-gray-200 mx-0.5 hidden md:block"></div>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, record.id); }}
+                                                                    className="flex items-center justify-center w-8 h-8 transition-all duration-300 rounded-full text-gray-500 hover:text-red-600 hover:scale-110 hover:bg-red-50 cursor-pointer"
+                                                                    title="Sil"
+                                                                >
+                                                                    <svg className="w-4 h-4 md:w-[18px] md:h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
                                                 {expandedRecordId === record.id && (
                                                     <tr className="bg-gray-50/50 animate-fade-in relative z-10 w-full">
-                                                        <td colSpan={user?.role === 'admin' ? "10" : "9"} className="p-0 border-b border-gray-100" style={{ maxWidth: 0 }}>
+                                                        <td colSpan={user?.role === 'admin' ? "7" : "6"} className="p-0 border-b border-gray-100" style={{ maxWidth: 0 }}>
                                                             <div className="p-6 w-full mx-auto">
                                                                 <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg group/note relative">
                                                                     <div className="flex justify-between items-start mb-1">

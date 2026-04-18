@@ -654,7 +654,6 @@ app.post('/api/save', authenticateToken, async (req, res) => {
     }
 
     try {
-        const newRecord = req.body;
         console.log(`[SAVE] Incoming request for URL: ${newRecord.url} by ${req.user.username}`);
 
         let duplicatesSnap;
@@ -686,35 +685,9 @@ app.post('/api/save', authenticateToken, async (req, res) => {
             });
         }
 
-        // If forced and requested to overwrite, soft-delete old duplicates first taking over their notes
-        if (newRecord.forceSave && newRecord.overwrite && !duplicatesSnap.empty) {
-            // Inherit notes, status_tag, and aiAnalysis from the latest active duplicate
-            const activeDocs = duplicatesSnap.docs.filter(d => d.data().status !== 'deleted');
-            if (activeDocs.length > 0) {
-                const latestDuplicate = activeDocs.map(d => d.data()).sort((a, b) => new Date(b.scrapedAt) - new Date(a.scrapedAt))[0];
-                if (latestDuplicate.note) newRecord.note = latestDuplicate.note;
-                if (latestDuplicate.status_tag) newRecord.status_tag = latestDuplicate.status_tag;
-                if (latestDuplicate.aiAnalysis) newRecord.aiAnalysis = latestDuplicate.aiAnalysis;
-                if (!newRecord.officeName && latestDuplicate.officeName) newRecord.officeName = latestDuplicate.officeName;
-                if (newRecord.isOffice === undefined && latestDuplicate.isOffice !== undefined) newRecord.isOffice = latestDuplicate.isOffice;
-            }
-
-            const deletePromises = duplicatesSnap.docs.map(d => {
-                return updateDoc(d.ref, {
-                    status: 'deleted',
-                    previousStatus: d.data().status || (req.user.role === 'admin' ? 'approved' : 'pending'),
-                    deletedAt: new Date().toISOString()
-                });
-            });
-            await Promise.all(deletePromises);
-            console.log(`[SAVE] Soft-deleted ${duplicatesSnap.size} duplicate entries for ${newRecord.url}`);
-        }
-
         // Enforce timestamp and attribution
         newRecord.scrapedAt = newRecord.scrapedAt ? new Date(newRecord.scrapedAt).toISOString() : new Date().toISOString();
         newRecord.userId = req.user.id;
-        delete newRecord.forceSave;
-        delete newRecord.overwrite;
         newRecord.username = req.user.username;
         newRecord.displayName = req.user.displayName || req.user.username;
         newRecord.status = req.user.role === 'admin' ? 'approved' : 'pending';
@@ -727,11 +700,58 @@ app.post('/api/save', authenticateToken, async (req, res) => {
         newRecord.mainCategory = mainCategory;
         newRecord.subCategory = subCategory;
 
-        // Ensure officeName/Logo/isOffice are at least empty strings or defaults if not present
+        // Ensure defaults
         if (!newRecord.officeName) newRecord.officeName = '';
         if (!newRecord.officeLogo) newRecord.officeLogo = '';
         if (newRecord.isOffice === undefined) newRecord.isOffice = false;
         if (newRecord.isTrade === undefined) newRecord.isTrade = false;
+
+        let shouldForceSave = newRecord.forceSave;
+        let shouldOverwrite = newRecord.overwrite;
+        delete newRecord.forceSave;
+        delete newRecord.overwrite;
+
+        // If forced and requested to overwrite, update the old duplicate instead of creating a new one
+        if (shouldForceSave && shouldOverwrite && !duplicatesSnap.empty) {
+            // Find the primary document to update
+            const sortedDocs = duplicatesSnap.docs.sort((a, b) => new Date(b.data().scrapedAt).getTime() - new Date(a.data().scrapedAt).getTime());
+            const activeDocs = sortedDocs.filter(d => d.data().status !== 'deleted');
+            const primaryDoc = activeDocs.length > 0 ? activeDocs[0] : sortedDocs[0];
+            const primaryData = primaryDoc.data();
+
+            // Inherit specific fields
+            if (primaryData.note) newRecord.note = primaryData.note;
+            if (primaryData.status_tag) newRecord.status_tag = primaryData.status_tag;
+            if (primaryData.aiAnalysis) newRecord.aiAnalysis = primaryData.aiAnalysis;
+            if (!newRecord.officeName && primaryData.officeName) newRecord.officeName = primaryData.officeName;
+            if (newRecord.isOffice === undefined && primaryData.isOffice !== undefined) newRecord.isOffice = primaryData.isOffice;
+
+            // Delete OTHER duplicates to enforce uniqueness if there happens to be multiple
+            const deletePromises = [];
+            sortedDocs.forEach(d => {
+                if (d.id !== primaryDoc.id && d.data().status !== 'deleted') {
+                    deletePromises.push(updateDoc(d.ref, {
+                        status: 'deleted',
+                        previousStatus: d.data().status || (req.user.role === 'admin' ? 'approved' : 'pending'),
+                        deletedAt: new Date().toISOString()
+                    }));
+                }
+            });
+            await Promise.all(deletePromises);
+
+            await updateDoc(primaryDoc.ref, newRecord);
+            console.log(`[SAVE] Overwrote duplicate entry for ${newRecord.url} on document ${primaryDoc.id}`);
+
+            await logActivity({
+                listingId: primaryDoc.id,
+                listingTitle: newRecord.title || '',
+                action: 'listing_updated',
+                by: req.user.displayName || req.user.username,
+                byId: req.user.id
+            });
+
+            return res.json({ success: true, message: 'Record updated successfully', data: { id: primaryDoc.id, ...newRecord } });
+        }
 
         const docRef = await addDoc(collection(db, DB_COLLECTION), newRecord);
         console.log(`[SAVE SUCCESS] Document written with ID: ${docRef.id} by ${req.user.username}. isTrade: ${newRecord.isTrade}`);
