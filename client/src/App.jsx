@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import NotificationContainer from './components/NotificationContainer';
 import { useContext } from 'react';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -31,158 +33,161 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
     return (
-        <AuthProvider>
-            <Router>
-                <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route
-                        path="/home"
-                        element={
-                            <ProtectedRoute>
-                                <Home />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/onay-bekleyenler"
-                        element={
-                            <ProtectedRoute>
-                                <PendingListings />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/kaydedilenler"
-                        element={
-                            <ProtectedRoute>
-                                <SavedListings />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/arsiv"
-                        element={
-                            <ProtectedRoute>
-                                <Archive />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/koleksiyonlar"
-                        element={
-                            <ProtectedRoute>
-                                <Collections />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/silinenler"
-                        element={
-                            <ProtectedRoute>
-                                <Trash />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/bolgeler"
-                        element={
-                            <ProtectedRoute>
-                                <Regions />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/efdal-ai"
-                        element={
-                            <ProtectedRoute>
-                                <EfdalAI />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/duyurular"
-                        element={
-                            <ProtectedRoute>
-                                <Announcements />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin"
-                        element={
-                            <ProtectedRoute>
-                                <Admin />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/randevular"
-                        element={
-                            <ProtectedRoute>
-                                <Appointments />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/talepler"
-                        element={
-                            <ProtectedRoute>
-                                <Demands />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/akis"
-                        element={
-                            <ProtectedRoute>
-                                <Feed />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/aktivite"
-                        element={
-                            <ProtectedRoute>
-                                <ActivityFeed />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/takas"
-                        element={
-                            <ProtectedRoute>
-                                <Takas />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/mesajlar"
-                        element={
-                            <ProtectedRoute>
-                                <Messages />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/sayfalar/excel-listeleri"
-                        element={
-                            <ProtectedRoute>
-                                <ExcelLists />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/ayarlar"
-                        element={
-                            <ProtectedRoute>
-                                <Settings />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route path="/" element={<Navigate to="/home" replace />} />
-                </Routes>
-            </Router>
-        </AuthProvider>
+        <NotificationProvider>
+            <AuthProvider>
+                <Router>
+                    <Routes>
+                        <Route path="/login" element={<Login />} />
+                        <Route
+                            path="/home"
+                            element={
+                                <ProtectedRoute>
+                                    <Home />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/onay-bekleyenler"
+                            element={
+                                <ProtectedRoute>
+                                    <PendingListings />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/kaydedilenler"
+                            element={
+                                <ProtectedRoute>
+                                    <SavedListings />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/arsiv"
+                            element={
+                                <ProtectedRoute>
+                                    <Archive />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/koleksiyonlar"
+                            element={
+                                <ProtectedRoute>
+                                    <Collections />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/silinenler"
+                            element={
+                                <ProtectedRoute>
+                                    <Trash />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/bolgeler"
+                            element={
+                                <ProtectedRoute>
+                                    <Regions />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/efdal-ai"
+                            element={
+                                <ProtectedRoute>
+                                    <EfdalAI />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/duyurular"
+                            element={
+                                <ProtectedRoute>
+                                    <Announcements />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/admin"
+                            element={
+                                <ProtectedRoute>
+                                    <Admin />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/randevular"
+                            element={
+                                <ProtectedRoute>
+                                    <Appointments />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/talepler"
+                            element={
+                                <ProtectedRoute>
+                                    <Demands />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/akis"
+                            element={
+                                <ProtectedRoute>
+                                    <Feed />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/aktivite"
+                            element={
+                                <ProtectedRoute>
+                                    <ActivityFeed />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/takas"
+                            element={
+                                <ProtectedRoute>
+                                    <Takas />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/mesajlar"
+                            element={
+                                <ProtectedRoute>
+                                    <Messages />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/sayfalar/excel-listeleri"
+                            element={
+                                <ProtectedRoute>
+                                    <ExcelLists />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/ayarlar"
+                            element={
+                                <ProtectedRoute>
+                                    <Settings />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route path="/" element={<Navigate to="/home" replace />} />
+                    </Routes>
+                </Router>
+                <NotificationContainer />
+            </AuthProvider>
+        </NotificationProvider>
     );
 }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import * as XLSX from 'xlsx-js-style';
 import { AuthContext } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -9,6 +10,7 @@ import { API_BASE_URL } from '../config';
 
 
 const Archive = () => {
+    const { showToast, showAlert, showConfirm } = useNotification();
     const [savedRecords, setSavedRecords] = useState([]);
     const [expandedRecordId, setExpandedRecordId] = useState(null);
     const [unarchivingId, setUnarchivingId] = useState(null);
@@ -144,9 +146,11 @@ const Archive = () => {
                 setSelectedCollectionIds(prev => [...prev, result.data.id]);
                 setNewCollectionName("");
                 setIsCreatingCollection(false);
+                showToast('Yeni koleksiyon oluşturuldu.', 'success');
             }
         } catch (err) {
             console.error('Failed to create collection:', err);
+            showAlert('Hata', 'Koleksiyon oluşturulamadı.');
         }
     };
 
@@ -201,7 +205,7 @@ const Archive = () => {
 
     const handleDeleteFolder = async (folderId, e) => {
         e.stopPropagation();
-        if (!window.confirm('Bu klasörü silmek istediğinize emin misiniz? İçindeki klasörler "Genel" klasörüne taşınacaktır.')) return;
+        if (!(await showConfirm('Klasörü Sil', 'Bu klasörü silmek istediğinize emin misiniz? İçindeki klasörler "Genel" klasörüne taşınacaktır.'))) return;
 
         try {
             const res = await fetch(`${API_BASE_URL}/archive-folders/${folderId}`, {
@@ -215,9 +219,11 @@ const Archive = () => {
                     setSelectedFolderId("all");
                 }
                 fetchRecords(); // Refresh since some items' folderId might be deleted
+                showToast('Klasör silindi.', 'success');
             }
         } catch (err) {
             console.error('Failed to delete folder:', err);
+            showAlert('Hata', 'İşlem başarısız oldu.');
         }
     };
 
@@ -332,9 +338,11 @@ const Archive = () => {
             const result = await response.json();
             if (result.success) {
                 setSavedRecords(prev => prev.filter(record => record.id !== id));
+                showToast('İlan arşivden geri yüklendi.', 'success');
             }
         } catch (err) {
             console.error('Failed to unarchive:', err);
+            showAlert('Hata', 'İşlem başarısız oldu.');
         } finally {
             setUnarchivingId(null);
         }
@@ -581,7 +589,7 @@ const Archive = () => {
         const excelData = getExcelDataPreview();
 
         if (!excelData) {
-            alert('Filtrelenmiş ilanlar arasında "Arsa" tipinde kayıt bulunamadı.');
+            showAlert('Hata', 'Filtrelenmiş ilanlar arasında "Arsa" tipinde kayıt bulunamadı.');
             return;
         }
         if (excelData.length === 0) return;
@@ -986,9 +994,12 @@ const Archive = () => {
                             <div key={folder.id} className="relative group flex items-center">
                                 <button
                                     onClick={() => setSelectedFolderId(folder.id)}
-                                    className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 pr-8 ${selectedFolderId === folder.id ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                                    className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all flex flex-col items-start gap-0.5 pr-8 ${selectedFolderId === folder.id ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
                                 >
-                                    {folder.name}
+                                    <span>{folder.name}</span>
+                                    {user?.role === 'admin' && (folder.displayName || folder.username) && (
+                                        <span className="text-[9px] font-medium opacity-60">Oluşturan: {folder.displayName || folder.username}</span>
+                                    )}
                                 </button>
                                 <button
                                     onClick={(e) => handleDeleteFolder(folder.id, e)}

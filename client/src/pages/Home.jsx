@@ -20,6 +20,7 @@ function Home() {
     const [followUps, setFollowUps] = useState({ day2: [], day7: [], day25: [] });
     const [todayAppointments, setTodayAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showReleaseNotes, setShowReleaseNotes] = useState(false);
 
     // Weather and Time State
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -172,7 +173,19 @@ function Home() {
         };
 
         fetchData();
+
+        // Check for release notes - Bumped version to 5.0
+        const currentVersion = '5.0';
+        const lastSeen = localStorage.getItem('efdal_update_seen');
+        if (lastSeen !== currentVersion) {
+            setTimeout(() => setShowReleaseNotes(true), 1500);
+        }
     }, [token]);
+
+    const closeReleaseNotes = () => {
+        localStorage.setItem('efdal_update_seen', '5.0');
+        setShowReleaseNotes(false);
+    };
 
     if (loading) {
         return (
@@ -274,7 +287,7 @@ function Home() {
                         {todayAppointments.length === 0 && (
                             <div className="border border-dashed border-gray-200 bg-white/40 rounded-3xl p-10 flex flex-col items-center justify-center text-center opacity-80 min-h-[200px]">
                                 <div className="w-16 h-16 bg-gray-100/50 rounded-full flex items-center justify-center mb-4">
-                                    <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z"></path></svg>
                                 </div>
                                 <p className="text-xs font-black  tracking-widest text-gray-400 mb-4">Planlı Etkileşim Yok</p>
                                 <button onClick={() => navigate('/sayfalar/randevular')} className="text-[11px] font-black  text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-5 py-2.5 rounded-full transition-colors">Randevu Oluştur</button>
@@ -441,6 +454,114 @@ function Home() {
                     </div>
                 )}
             </div>
+
+            {/* ONE-TIME RELEASE NOTES MODAL */}
+            {showReleaseNotes && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 animate-fade-in">
+                    {/* Backdrop */}
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeReleaseNotes}></div>
+                    
+                    {/* Modal Content */}
+                    <div className="relative bg-white/95 backdrop-blur-2xl w-full max-w-lg rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-white/40 overflow-hidden animate-in zoom-in-95 duration-500">
+                        {/* Hero Section */}
+                        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 md:p-8 text-center relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                                <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                    <path d="M0 100 C 20 0 50 0 100 100 Z" fill="white"></path>
+                                </svg>
+                            </div>
+                            <div className="inline-flex items-center justify-center w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl mb-4 shadow-xl border border-white/20">
+                                <span className="text-2xl">🚀</span>
+                            </div>
+                            <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight mb-1">Yenilikler Yayında!</h2>
+                            <p className="text-white/70 font-semibold uppercase tracking-widest text-[9px]">Efdal Dashboard v5.0 Güncellemesi</p>
+                        </div>
+
+                        <div className="p-6 md:p-8 space-y-6">
+                            <div className="grid gap-5">
+                                {/* Feature 1 */}
+                                <div className="flex gap-4 group">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-600 transition-all duration-300">
+                                        <svg className="w-5 h-5 text-indigo-600 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900 text-[15px] mb-0.5">Gelişmiş Fotoğraf Galerisi</h4>
+                                        <p className="text-[13px] text-gray-500 font-medium leading-normal">Thumbnail destekli ve hızlı geçişli yeni galeri arayüzü yayına alındı.</p>
+                                    </div>
+                                </div>
+
+                                {/* Feature 2 */}
+                                <div className="flex gap-4 group">
+                                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 transition-all duration-300">
+                                        <svg className="w-5 h-5 text-blue-600 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900 text-[15px] mb-0.5">Akıllı Zoom & Pan</h4>
+                                        <p className="text-[13px] text-gray-500 font-medium leading-normal">Detayları inceleyebilmeniz için hassas yakınlaştırma özelliği eklendi.</p>
+                                    </div>
+                                </div>
+
+                                {/* Feature 3 */}
+                                <div className="flex gap-4 group">
+                                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-600 transition-all duration-300">
+                                        <svg className="w-5 h-5 text-emerald-600 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900 text-[15px] mb-0.5">Global Bildirim Sistemi</h4>
+                                        <p className="text-[13px] text-gray-500 font-medium leading-normal">Tüm sistem uyarıları için modern bir bildirim altyapısı entegre edildi.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Past Improvements Expanded Section */}
+                            <div className="pt-6 border-t border-gray-100 space-y-4">
+                                <h5 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3 ml-1">Geçmiş İyileştirmeler</h5>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 px-1">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                                            <span className="text-[13px] font-semibold text-gray-800">Veri & Mantık Hataları</span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 font-medium leading-snug pl-3.5">Senkronizasyon ve gecikme sorunları tamamen giderildi.</p>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                                            <span className="text-[13px] font-semibold text-gray-800">Gelişmiş Raporlama</span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 font-medium leading-snug pl-3.5">Yeni filtreleme ile Excel aktarımı daha esnek hale getirildi.</p>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                                            <span className="text-[13px] font-semibold text-gray-800">Arayüz Modernizasyonu</span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 font-medium leading-snug pl-3.5">Takip Zinciri ve Talep Bölgeleri sayfaları yenilendi.</p>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                                            <span className="text-[13px] font-semibold text-gray-800">Altyapı & Hız</span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 font-medium leading-snug pl-3.5">Sorgu süreleri ve render performansı optimize edildi.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={closeReleaseNotes}
+                                className="w-full bg-indigo-600 hover:bg-black text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-indigo-100 transition-all active:scale-98 text-base"
+                            >
+                                Harika, Anladım! ✨
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

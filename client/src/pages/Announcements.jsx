@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config';
 
@@ -26,6 +27,7 @@ function renderContent(text) {
 }
 
 function Announcements() {
+    const { showToast, showAlert, showConfirm } = useNotification();
     const { token, user } = useContext(AuthContext);
     const [announcements, setAnnouncements] = useState([]);
     const [title, setTitle] = useState('');
@@ -79,13 +81,13 @@ function Announcements() {
             const data = await response.json();
             if (data.success) {
                 setImageUrl(data.url);
-                setMsg({ type: 'success', text: 'Görsel başarıyla yüklendi.' });
+                showToast('Görsel yüklendi.', 'success');
             } else {
-                setMsg({ type: 'error', text: data.error || 'Yükleme başarısız.' });
+                showAlert('Hata', data.error || 'Yükleme başarısız.');
             }
         } catch (err) {
             console.error('Upload error:', err);
-            setMsg({ type: 'error', text: 'Bağlantı hatası.' });
+            showAlert('Hata', 'Görsel yüklenirken bir hata oluştu.');
         } finally {
             setUploading(false);
         }
@@ -116,7 +118,7 @@ function Announcements() {
             });
             const data = await response.json();
             if (data.success) {
-                setMsg({ type: 'success', text: 'Duyuru başarıyla yayınlandı.' });
+                showToast('Duyuru başarıyla yayınlandı.', 'success');
                 setTitle('');
                 setContent('');
                 setType('Duyuru');
@@ -124,16 +126,16 @@ function Announcements() {
                 setQuotedListing(null);
                 fetchAnnouncements();
             } else {
-                setMsg({ type: 'error', text: data.error });
+                showAlert('Hata', data.error || 'Duyuru yayınlanamadı.');
             }
         } catch (err) {
             console.error('Announce Creation Error:', err);
-            setMsg({ type: 'error', text: 'Sunucu hatası' });
+            showAlert('Hata', 'Paylaşım sırasında bir sunucu hatası oluştu.');
         }
     };
 
     const handleDeleteAnnouncement = async (id) => {
-        if (!window.confirm('Bu duyuruyu silmek istediğinize emin misiniz?')) return;
+        if (!(await showConfirm('Duyuruyu Sil', 'Bu duyuruyu silmek istediğinize emin misiniz?'))) return;
         try {
             const response = await fetch(`${API_BASE_URL}/announcements/${id}`, {
                 method: 'DELETE',
@@ -142,9 +144,11 @@ function Announcements() {
             const data = await response.json();
             if (data.success) {
                 fetchAnnouncements();
+                showToast('Duyuru silindi.', 'success');
             }
         } catch (err) {
             console.error('Delete error:', err);
+            showAlert('Hata', 'Silme işlemi başarısız oldu.');
         }
     };
 

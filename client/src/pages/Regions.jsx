@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { AuthContext } from '../contexts/AuthContext';
@@ -6,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 
 function Regions() {
+    const { showToast, showAlert } = useNotification();
     const { token, user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
 
@@ -168,12 +170,13 @@ function Regions() {
             if (data.success) {
                 fetchAssignments(); // Refresh map colors
                 setModalData(null); // Close modal
+                showToast('Bölge ataması başarıyla güncellendi.', 'success');
             } else {
-                alert("Hata: " + data.error);
+                showAlert('Hata', data.error || 'Atama işlemi başarısız.');
             }
         } catch (err) {
             console.error(err);
-            alert("Sunucu hatası.");
+            showAlert('Hata', 'Sunucu hatası.');
         }
     };
 

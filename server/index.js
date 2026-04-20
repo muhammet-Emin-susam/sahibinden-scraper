@@ -649,8 +649,14 @@ app.get('/api/records', authenticateToken, async (req, res) => {
 app.post('/api/save', authenticateToken, async (req, res) => {
     const newRecord = req.body;
 
-    if (!newRecord || !newRecord.title || !newRecord.url) {
-        return res.status(400).json({ success: false, error: 'Invalid data' });
+    if (!newRecord || !newRecord.title) {
+        return res.status(400).json({ success: false, error: 'Invalid data: Title is required' });
+    }
+
+    // Handle manual entries (no URL provided)
+    if (!newRecord.url) {
+        newRecord.url = `manual://${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        newRecord.isManual = true;
     }
 
     try {
@@ -695,10 +701,12 @@ app.post('/api/save', authenticateToken, async (req, res) => {
             newRecord.approvedAt = new Date().toISOString();
         }
 
-        // Automatic Categorization
-        const { mainCategory, subCategory } = categorizeListing(newRecord);
-        newRecord.mainCategory = mainCategory;
-        newRecord.subCategory = subCategory;
+        // Automatic Categorization (only if not provided or for legacy support)
+        if (!newRecord.mainCategory || !newRecord.subCategory || newRecord.mainCategory === 'Diğer') {
+            const { mainCategory, subCategory } = categorizeListing(newRecord);
+            if (!newRecord.mainCategory || newRecord.mainCategory === 'Diğer') newRecord.mainCategory = mainCategory;
+            if (!newRecord.subCategory || newRecord.subCategory === 'Diğer') newRecord.subCategory = subCategory;
+        }
 
         // Ensure defaults
         if (!newRecord.officeName) newRecord.officeName = '';
@@ -1041,7 +1049,8 @@ app.post('/api/archive-folders', authenticateToken, async (req, res) => {
         const docRef = await addDoc(collection(db, DB_ARCHIVE_FOLDERS), {
             name: name.trim(),
             userId: req.user.id,
-            userName: req.user.username,
+            username: req.user.username,
+            displayName: req.user.displayName || req.user.username,
             createdAt: new Date().toISOString()
         });
         res.json({ success: true, message: 'Folder created successfully', data: { id: docRef.id, name: name.trim() } });
@@ -2487,6 +2496,7 @@ app.post('/api/collections', authenticateToken, async (req, res) => {
             name: name.trim(),
             userId: req.user.id,
             username: req.user.username,
+            displayName: req.user.displayName || req.user.username,
             createdAt: new Date().toISOString()
         });
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import * as XLSX from 'xlsx-js-style';
 import { AuthContext } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -6,6 +7,7 @@ import { API_BASE_URL } from '../config';
 
 
 function TrashListings() {
+    const { showToast, showConfirm } = useNotification();
     const [savedRecords, setSavedRecords] = useState([]);
     const [expandedRecordId, setExpandedRecordId] = useState(null);
     const [lightboxImage, setLightboxImage] = useState(null);
@@ -52,7 +54,7 @@ function TrashListings() {
     const handleHardDeleteRecord = async (e, id) => {
         e.stopPropagation();
 
-        if (!window.confirm("Bu ilanı HİÇBİR ZAMAN geri döndürülemeyecek şekilde KALICI olarak silmek istediğinize emin misiniz?")) return;
+        if (!(await showConfirm("Kalıcı Silme Onayı", "Bu ilanı HİÇBİR ZAMAN geri döndürülemeyecek şekilde KALICI olarak silmek istediğinize emin misiniz?"))) return;
 
         try {
             await fetch(`${API_BASE_URL}/records/${id}/hard`, {
@@ -68,7 +70,7 @@ function TrashListings() {
     };
 
     const handleEmptyTrash = async () => {
-        if (!window.confirm("Çöp kutusundaki TÜM ilanları KALICI olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
+        if (!(await showConfirm("Çöpü Boşalt", "Çöp kutusundaki TÜM ilanları KALICI olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz!"))) return;
 
         try {
             await fetch(`${API_BASE_URL}/records/trash/empty`, {
@@ -94,8 +96,10 @@ function TrashListings() {
                 }
             });
             setSavedRecords(prev => prev.filter(record => record.id !== id));
+            showToast('İlan başarıyla geri alındı.', 'success');
         } catch (err) {
             console.error('Failed to restore:', err);
+            showToast('Geri alma işlemi başarısız oldu.', 'error');
         }
     };
 

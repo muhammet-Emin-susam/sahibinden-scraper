@@ -1,10 +1,12 @@
 import { useState, useEffect, useContext } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
 import { API_BASE_URL } from '../config';
 
 
 function EfdalAI() {
+    const { showToast, showAlert, showConfirm } = useNotification();
     const { token, user } = useContext(AuthContext);
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -252,11 +254,11 @@ function EfdalAI() {
             } else if (!data.success && data.error) {
                 throw new Error(data.error);
             } else {
-                alert('Parsel bulunamadı veya bir hata oluştu.');
+                showAlert('Hata', 'Parsel bulunamadı veya bir hata oluştu.');
             }
         } catch (err) {
             console.error(err);
-            alert(err.message || 'Sorgulama başarısız.');
+            showAlert('Hata', err.message || 'Sorgulama başarısız.');
         } finally {
             setSearchingParcel(false);
         }
@@ -280,11 +282,11 @@ function EfdalAI() {
             if (data.success && data.analysis) {
                 setParcelAnalysis(data.analysis);
             } else {
-                alert(data.error || 'Analiz sırasında bir hata oluştu');
+                showAlert('Hata', data.error || 'Analiz sırasında bir hata oluştu');
             }
         } catch (err) {
             console.error(err);
-            alert('Sunucuyla bağlantı kurulamadı.');
+            showAlert('Hata', 'Sunucuyla bağlantı kurulamadı.');
         } finally {
             setAnalyzingParcel(false);
         }
@@ -319,18 +321,18 @@ function EfdalAI() {
                     localStorage.setItem('efdalai_cooldown_end', endTime.toString());
                     setCooldown(duration);
                 }
-                alert(data.error || 'Analiz sırasında bir hata oluştu.');
+                showAlert('Hata', data.error || 'Analiz sırasında bir hata oluştu.');
             }
         } catch (err) {
             console.error(err);
-            alert('Sunucu hatası.');
+            showAlert('Hata', 'Sunucu hatası.');
         } finally {
             setAnalyzingId(null);
         }
     };
 
     const handleClearAnalysis = async (id) => {
-        if (!window.confirm('Mevcut analizi temizlemek istediğinize emin misiniz?')) return;
+        if (!(await showConfirm('Analizi Temizle', 'Mevcut analizi temizlemek istediğinize emin misiniz?'))) return;
         try {
             const response = await fetch(`${API_BASE_URL}/ai/clear/${id}`, {
                 method: 'POST',
@@ -342,10 +344,11 @@ function EfdalAI() {
                 if (selectedRecord?.id === id) {
                     setSelectedRecord({ ...selectedRecord, aiAnalysis: null });
                 }
+                showToast('Analiz temizlendi.');
             }
         } catch (err) {
             console.error(err);
-            alert('Temizleme hatası.');
+            showAlert('Hata', 'Temizleme hatası.');
         }
     };
 
@@ -385,7 +388,7 @@ function EfdalAI() {
     };
 
     const handleApproveRecord = async (id) => {
-        if (!window.confirm('Bu ilanı onaylayıp portföyünüze taşımak istediğinize emin misiniz?')) return;
+        if (!(await showConfirm('İlanı Onayla', 'Bu ilanı onaylayıp portföyünüze taşımak istediğinize emin misiniz?'))) return;
         try {
             const response = await fetch(`${API_BASE_URL}/records/${id}/approve`, {
                 method: 'PUT',
@@ -402,10 +405,11 @@ function EfdalAI() {
                 if (selectedRecord?.id === id) {
                     setSelectedRecord({ ...selectedRecord, status: 'approved' });
                 }
+                showToast('İlan onaylandı ve portföye taşındı.', 'success');
             }
         } catch (err) {
             console.error('Failed to approve:', err);
-            alert('Onaylama hatası.');
+            showAlert('Hata', 'Onaylama hatası.');
         }
     };
 

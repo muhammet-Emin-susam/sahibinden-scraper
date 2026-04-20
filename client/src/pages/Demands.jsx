@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 
 
 function Demands() {
+    const { showToast, showAlert, showConfirm } = useNotification();
     const { token, user } = useContext(AuthContext);
     const navigate = useNavigate();
     const [demands, setDemands] = useState([]);
@@ -215,7 +217,7 @@ function Demands() {
             }
         } catch (err) {
             console.error(err);
-            alert('Mesaj gönderilemedi.');
+            showToast('Mesaj gönderilemedi.', 'error');
         }
     };
 
@@ -238,7 +240,7 @@ function Demands() {
 
     const handleDelete = async (id, e) => {
         e.stopPropagation();
-        if (!window.confirm('Bu talebi silmek istediğinize emin misiniz?')) return;
+        if (!(await showConfirm('Talep Silme', 'Bu talebi silmek istediğinize emin misiniz?'))) return;
 
         try {
             const res = await fetch(`${API_BASE_URL}/demands/${id}`, {
@@ -248,10 +250,11 @@ function Demands() {
             const data = await res.json();
             if (data.success) {
                 setDemands(demands.filter(d => d.id !== id));
+                showToast('Talep başarıyla silindi.', 'success');
             }
         } catch (err) {
             console.error(err);
-            alert('Silme başarısız');
+            showAlert('Hata', 'Silme işlemi başarısız oldu.');
         }
     };
 
@@ -271,12 +274,13 @@ function Demands() {
                 if (selectedDemand && selectedDemand.id === id) {
                     setSelectedDemand({ ...selectedDemand, status: newStatus });
                 }
+                showToast('Durum güncellendi.', 'success');
             } else {
-                alert('Durum güncellenemedi: ' + data.error);
+                showAlert('Hata', data.error || 'Durum güncellenemedi.');
             }
         } catch (err) {
             console.error(err);
-            alert('Durum güncellenirken bir hata oluştu.');
+            showAlert('Hata', 'Durum güncellenirken bir hata oluştu.');
         }
     };
 
@@ -286,7 +290,7 @@ function Demands() {
 
         // Ensure location data is loaded before saving
         if (Object.keys(availableLocations).length === 0) {
-            alert('Mahalle verileri henüz yüklenmedi, lütfen bekleyin...');
+            showToast('Mahalle verileri henüz yüklenmedi, lütfen bekleyin...', 'info');
             return;
         }
 
@@ -322,12 +326,13 @@ function Demands() {
             if (data.success) {
                 setShowModal(false);
                 fetchDemands();
+                showToast('Talep başarıyla kaydedildi.', 'success');
             } else {
-                alert(data.error);
+                showAlert('Hata', data.error || 'Talep kaydedilemedi.');
             }
         } catch (err) {
             console.error(err);
-            alert('Kayıt başarısız');
+            showAlert('Hata', 'Kayıt başarısız oldu.');
         } finally {
             setSaving(false);
         }
@@ -339,7 +344,7 @@ function Demands() {
 
         // Ensure location data is loaded before saving
         if (Object.keys(availableLocations).length === 0) {
-            alert('Mahalle verileri henüz yüklenmedi, lütfen bekleyin...');
+            showToast('Mahalle verileri henüz yüklenmedi, lütfen bekleyin...', 'info');
             return;
         }
 
@@ -375,12 +380,13 @@ function Demands() {
             if (data.success) {
                 setShowModal(false);
                 fetchDemands();
+                showToast('Talep başarıyla güncellendi.', 'success');
             } else {
-                alert(data.error);
+                showAlert('Hata', data.error || 'Güncelleme yapılamadı.');
             }
         } catch (err) {
             console.error(err);
-            alert('Güncelleme başarısız');
+            showAlert('Hata', 'Güncelleme başarısız oldu.');
         } finally {
             setSaving(false);
         }
@@ -388,7 +394,7 @@ function Demands() {
 
     const handleRemoveMatch = async (e, demandId, listingId) => {
         e.stopPropagation();
-        if (!window.confirm('Bu ilanı talepten çıkarmak istediğinize emin misiniz?')) return;
+        if (!(await showConfirm('İlan Çıkarma', 'Bu ilanı talepten çıkarmak istediğinize emin misiniz?'))) return;
 
         setRemovingMatchId(listingId);
         try {
@@ -410,12 +416,13 @@ function Demands() {
                 if (selectedDemand && selectedDemand.id === demandId) {
                     setSelectedDemand(prev => ({ ...prev, matchedListings: prev.matchedListings.filter(l => l.listingId !== listingId) }));
                 }
+                showToast('İlan talepten çıkarıldı.', 'success');
             } else {
-                alert(data.error || 'İlan çıkarılırken bir hata oluştu.');
+                showAlert('Hata', data.error || 'İlan çıkarılırken bir hata oluştu.');
             }
         } catch (err) {
             console.error('Failed to remove match:', err);
-            alert('İşlem başarısız oldu.');
+            showAlert('Hata', 'İşlem başarısız oldu.');
         } finally {
             setRemovingMatchId(null);
         }
@@ -468,12 +475,13 @@ function Demands() {
 
                 setSelectedDemand(prev => ({ ...prev, matchedListings: [...(prev.matchedListings || []), newMatch] }));
                 setDemands(prev => prev.map(d => d.id === selectedDemand.id ? { ...d, matchedListings: [...(d.matchedListings || []), newMatch] } : d));
+                showToast('İlan başarıyla eşleştirildi.', 'success');
             } else {
-                alert(data.error);
+                showAlert('Hata', data.error || 'Eşleştirme yapılamadı.');
             }
         } catch (err) {
             console.error(err);
-            alert('Eşleştirme başarısız');
+            showAlert('Hata', 'Eşleştirme başarısız oldu.');
         } finally {
             setMatchingSuggestionId(null);
         }
@@ -493,13 +501,13 @@ function Demands() {
         if (data.success) {
             setDemands(prev => prev.map(d => d.id === demandId ? { ...d, shareType, sharedWithIds } : d));
             setShowShareModal(false);
-            alert('Talep paylaşıldı.');
+            showToast('Talep paylaşıldı.', 'success');
         } else {
-            alert(data.error);
+            showAlert('Hata', data.error || 'Paylaşım yapılamadı.');
         }
     } catch (err) {
         console.error(err);
-        alert('Paylaşım hatası');
+        showAlert('Hata', 'Paylaşım sırasında bir hata oluştu.');
     }
 };
 

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config';
 
 
 function Feed() {
+    const { showToast, showAlert } = useNotification();
     const { token } = useContext(AuthContext);
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -78,14 +80,14 @@ function Feed() {
             });
             const data = await res.json();
             if (data.success) {
-                alert('Mesajınız başarıyla gönderildi ve sohbet başlatıldı.');
+                showToast('Mesajınız başarıyla gönderildi ve sohbet başlatıldı.', 'success');
                 setShowModal(false);
             } else {
-                alert('Hata: ' + data.error);
+                showAlert('Hata', data.error || 'Mesaj gönderilemedi.');
             }
         } catch (err) {
             console.error(err);
-            alert('Mesaj gönderilirken bir hata oluştu.');
+            showAlert('Hata', 'Mesaj gönderilirken bir hata oluştu.');
         } finally {
             setSending(false);
         }

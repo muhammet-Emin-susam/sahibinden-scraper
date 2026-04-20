@@ -1,10 +1,12 @@
 import { useState, useEffect, useContext, useRef } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config';
 import ExcelImportModal from '../components/ExcelImportModal';
 import ExcelJS from 'exceljs';
 
 const ExcelLists = () => {
+    const { showToast, showAlert, showConfirm } = useNotification();
     const { token } = useContext(AuthContext);
     const [lists, setLists] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -83,17 +85,17 @@ const ExcelLists = () => {
             });
             const data = await response.json();
             if (data.success) {
-                setStatus({ type: 'success', message: 'Dosya başarıyla kaydedildi.' });
+                showToast('Dosya başarıyla kaydedildi.', 'success');
                 fetchLists();
                 setShowImportModal(false);
             }
         } catch (err) {
-            setStatus({ type: 'error', message: 'Sunucuyla bağlantı kurulamadı.' });
+            showAlert('Hata', 'Sunucuyla bağlantı kurulamadı.');
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Bu dosyayı kalıcı olarak silmek istediğinize emin misiniz?')) return;
+        if (!(await showConfirm('Belgeyi Kapat', 'Bu dosyayı kalıcı olarak silmek istediğinize emin misiniz?'))) return;
         try {
             await fetch(`${API_BASE_URL}/excel-lists/${id}`, {
                 method: 'DELETE',
@@ -102,8 +104,10 @@ const ExcelLists = () => {
             fetchLists();
             if (selectedWorkbook?.id === id) setSelectedWorkbook(null);
             setContextMenu(prev => ({...prev, visible: false}));
+            showToast('Dosya başarıyla silindi.', 'success');
         } catch (err) {
             console.error('Error deleting list:', err);
+            showAlert('Hata', 'Silme işlemi başarısız oldu.');
         }
     };
 
@@ -267,7 +271,7 @@ const ExcelLists = () => {
             window.URL.revokeObjectURL(url);
         } catch (err) {
             console.error('Excel dışa aktarma hatası:', err);
-            alert('Belge dışa aktarılırken bir hata oluştu.');
+            showAlert('Hata', 'Belge dışa aktarılırken bir hata oluştu.');
         }
     };
 

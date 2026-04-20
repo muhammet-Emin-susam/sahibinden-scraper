@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
@@ -6,6 +7,7 @@ import { API_BASE_URL } from '../config';
 const PROPERTY_TYPES = ['Konut', 'Arsa', 'Arazi', 'Araba', 'Dükkan', 'Yazlık', 'Diğer'];
 
 function Takas() {
+    const { showToast, showAlert, showConfirm } = useNotification();
     const [trades, setTrades] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -73,7 +75,7 @@ function Takas() {
     }, [selectedTradeId, token]);
 
     const handleDeleteTrade = async (id) => {
-        if (!window.confirm('Bu takas talebini silmek istediğinize emin misiniz?')) return;
+        if (!(await showConfirm('Takas Talebini Sil', 'Bu takas talebini silmek istediğinize emin misiniz?'))) return;
         try {
             const response = await fetch(`${API_BASE_URL}/trades/${id}`, {
                 method: 'DELETE',
@@ -83,9 +85,11 @@ function Takas() {
             if (result.success) {
                 setTrades(prev => prev.filter(t => t.id !== id));
                 if (selectedTradeId === id) setSelectedTradeId(null);
+                showToast('Takas talebi silindi.', 'success');
             }
         } catch (err) {
             console.error('Failed to delete trade:', err);
+            showAlert('Hata', 'Silme işlemi başarısız oldu.');
         }
     };
 
@@ -202,8 +206,8 @@ function Takas() {
                 </div>
             </div>
 
-            {showCreateModal && <CreateTradeModal onClose={() => setShowCreateModal(false)} onCreated={() => { setShowCreateModal(false); fetchTrades(); }} token={token} />}
-            {showRequestsModal && <MatchRequestsModal trade={showRequestsModal} onClose={() => setShowRequestsModal(null)} onUpdate={() => fetchTrades()} token={token} />}
+            {showCreateModal && <CreateTradeModal onClose={() => setShowCreateModal(false)} onCreated={() => { setShowCreateModal(false); fetchTrades(); showToast('Takas talebi paylaşıldı.', 'success'); }} showAlert={showAlert} token={token} />}
+            {showRequestsModal && <MatchRequestsModal trade={showRequestsModal} onClose={() => setShowRequestsModal(null)} onUpdate={() => fetchTrades()} showToast={showToast} showAlert={showAlert} token={token} />}
         </div>
     );
 }
@@ -550,8 +554,17 @@ function MatchRequestsModal({ trade, onClose, onUpdate, token }) {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ action })
             });
-            if ((await resp.json()).success) { fetchRequests(); onUpdate(); }
-        } catch (err) { console.error(err); }
+            if ((await resp.json()).success) { 
+                fetchRequests(); 
+                onUpdate(); 
+                showToast(action === 'approve' ? 'Talep onaylandı.' : 'Talep reddedildi.');
+            } else {
+                showAlert('Hata', 'İşlem gerçekleştirilemedi.');
+            }
+        } catch (err) { 
+            console.error(err); 
+            showAlert('Hata', 'Sunucu hatası.');
+        }
     };
 
     return (

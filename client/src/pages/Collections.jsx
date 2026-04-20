@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx-js-style';
@@ -6,6 +7,7 @@ import { API_BASE_URL } from '../config';
 
 
 const Collections = () => {
+    const { showToast, showConfirm } = useNotification();
     const { token, user } = useContext(AuthContext);
     const navigate = useNavigate();
     const [collections, setCollections] = useState([]);
@@ -94,14 +96,16 @@ const Collections = () => {
             if (data.success) {
                 setCollections(collections.map(c => c.id === selectedCollectionId ? { ...c, name: newName } : c));
                 setIsRenaming(false);
+                showToast('Koleksiyon ismi güncellendi.', 'success');
             }
         } catch (err) {
             console.error("Error renaming collection:", err);
+            showToast('Güncelleme başarısız oldu.', 'error');
         }
     };
 
     const handleDeleteCollection = async () => {
-        if (!window.confirm("Bu koleksiyonu silmek istediğinize emin misiniz? İlanlar silinmeyecek, sadece bu gruptan çıkarılacaktır.")) return;
+        if (!(await showConfirm("Koleksiyonu Sil", "Bu koleksiyonu silmek istediğinize emin misiniz? İlanlar silinmeyecek, sadece bu gruptan çıkarılacaktır."))) return;
         try {
             setIsDeleting(true);
             const res = await fetch(`${API_BASE_URL}/collections/${selectedCollectionId}`, {
@@ -117,9 +121,11 @@ const Collections = () => {
                 } else {
                     setSelectedCollectionId(null);
                 }
+                showToast('Koleksiyon silindi.', 'success');
             }
         } catch (err) {
             console.error("Error deleting collection:", err);
+            showToast('Koleksiyon silinemedi.', 'error');
         } finally {
             setIsDeleting(false);
         }
@@ -143,9 +149,11 @@ const Collections = () => {
             const data = await res.json();
             if (data.success) {
                 setRecords(records.filter(r => r.id !== recordId));
+                showToast('İlan koleksiyondan çıkarıldı.', 'success');
             }
         } catch (err) {
             console.error("Error removing record from collection:", err);
+            showToast('İşlem başarısız oldu.', 'error');
         }
     };
 
@@ -227,7 +235,14 @@ const Collections = () => {
                                             onClick={() => { setSelectedCollectionId(c.id); setIsRenaming(false); }}
                                             className={`w-full text-left px-4 py-3 rounded-2xl transition-all flex items-center justify-between group ${selectedCollectionId === c.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-gray-600 hover:bg-gray-50'}`}
                                         >
-                                            <span className="font-semibold truncate">{c.name}</span>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="font-semibold truncate">{c.name}</span>
+                                                {user?.role === 'admin' && (c.displayName || c.username) && (
+                                                    <span className={`text-[10px] font-medium opacity-70 truncate ${selectedCollectionId === c.id ? 'text-white' : 'text-gray-400'}`}>
+                                                        Oluşturan: {c.displayName || c.username}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <svg className={`w-4 h-4 transition-transform ${selectedCollectionId === c.id ? 'translate-x-0 opacity-100' : '-translate-x-2 opacity-0 group-hover:opacity-50 group-hover:translate-x-0'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
                                         </button>
                                     ))}

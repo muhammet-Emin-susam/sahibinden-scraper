@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 
 
 function Messages() {
+    const { showAlert } = useNotification();
     const { token, user } = useContext(AuthContext);
     const navigate = useNavigate();
     const [conversations, setConversations] = useState([]);
@@ -134,7 +136,7 @@ function Messages() {
             }
         } catch (err) {
             console.error(err);
-            alert('Mesaj gönderilemedi');
+            showAlert('Hata', 'Mesaj gönderilirken bir hata oluştu.');
         }
     };
 

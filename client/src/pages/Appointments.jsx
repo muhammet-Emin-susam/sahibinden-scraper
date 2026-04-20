@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
@@ -27,6 +28,7 @@ const localizer = dateFnsLocalizer({
 });
 
 function Appointments() {
+    const { showToast, showAlert, showConfirm } = useNotification();
     const [appointments, setAppointments] = useState([]);
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -148,17 +150,18 @@ function Appointments() {
             if (result.success) {
                 fetchAppointmentsAndListings();
                 handleCloseModal();
+                showToast(editingId ? 'Görüşme güncellendi.' : 'Görüşme kaydedildi.', 'success');
             } else {
-                alert("Hata: " + result.error);
+                showAlert('Hata', result.error || 'Kaydedilemedi.');
             }
         } catch (err) {
             console.error("Save error:", err);
-            alert("Kaydedilemedi!");
+            showAlert('Hata', 'Kaydedilirken bir hata oluştu.');
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Bu randevu/iletişim kaydını silmek istediğinize emin misiniz?")) return;
+        if (!(await showConfirm('Kaydı Sil', 'Bu randevu/iletişim kaydını silmek istediğinize emin misiniz?'))) return;
 
         try {
             const response = await fetch(`${API_BASE_URL}/appointments/${id}`, {
@@ -168,10 +171,11 @@ function Appointments() {
             const result = await response.json();
             if (result.success) {
                 setAppointments(prev => prev.filter(app => app.id !== id));
+                showToast('Kayıt silindi.', 'success');
             }
         } catch (err) {
             console.error("Delete error:", err);
-            alert("Silinemedi!");
+            showAlert('Hata', 'Silme işlemi başarısız oldu.');
         }
     };
 

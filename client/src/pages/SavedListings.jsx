@@ -1,19 +1,26 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNotification } from '../contexts/NotificationContext';
 import * as XLSX from 'xlsx-js-style';
 import { AuthContext } from '../contexts/AuthContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import "react-datepicker/dist/react-datepicker.css";
 import { tr } from 'date-fns/locale';
 import { API_BASE_URL } from '../config';
+import ManualListingModal from '../components/ManualListingModal';
 
 
 function SavedListings() {
+    const { showToast, showAlert, showConfirm } = useNotification();
     const [savedRecords, setSavedRecords] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedRecordId, setExpandedRecordId] = useState(null);
     const [archivingId, setArchivingId] = useState(null);
-    const [lightboxImage, setLightboxImage] = useState(null);
+    const [galleryData, setGalleryData] = useState(null); // { items: [], index: 0 }
     const [isZoomed, setIsZoomed] = useState(false);
+    const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const thumbScrollRef = React.useRef(null);
     const [activityLogs, setActivityLogs] = useState({}); // { [recordId]: [...logs] }
 
     // Archive Modal states
@@ -61,9 +68,82 @@ function SavedListings() {
     const [startDate, setStartDate] = useState(null);
     const [endDate, setEndDate] = useState(null);
     const [sortBy, setSortBy] = useState('newest_approved');
+    const [showManualModal, setShowManualModal] = useState(false);
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!galleryData) return;
+            if (e.key === 'ArrowRight') handleNextImage(e);
+            if (e.key === 'ArrowLeft') handlePrevImage(e);
+            if (e.key === 'Escape') setGalleryData(null);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [galleryData]);
+
+    useEffect(() => {
+        if (galleryData && thumbScrollRef.current) {
+            const activeThumb = thumbScrollRef.current.children[galleryData.index];
+            if (activeThumb) {
+                activeThumb.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'center'
+                });
+            }
+        }
+    }, [galleryData?.index]);
+
+    const handlePrevImage = (e) => {
+        if (e) e.stopPropagation();
+        if (!galleryData) return;
+        setGalleryData(prev => ({
+            ...prev,
+            index: (prev.index - 1 + prev.items.length) % prev.items.length
+        }));
+        setIsZoomed(false);
+        setZoomPos({ x: 0, y: 0 });
+    };
+
+    const handleNextImage = (e) => {
+        if (e) e.stopPropagation();
+        if (!galleryData) return;
+        setGalleryData(prev => ({
+            ...prev,
+            index: (prev.index + 1) % prev.items.length
+        }));
+        setIsZoomed(false);
+        setZoomPos({ x: 0, y: 0 });
+    };
+
+    const handleZoomToggle = (e) => {
+        if (e) e.stopPropagation();
+        const newZoomed = !isZoomed;
+        setIsZoomed(newZoomed);
+        if (!newZoomed) setZoomPos({ x: 0, y: 0 });
+    };
+
+    const handleMouseDown = (e) => {
+        if (!isZoomed) return;
+        e.preventDefault();
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - zoomPos.x, y: e.clientY - zoomPos.y });
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging || !isZoomed) return;
+        setZoomPos({
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y
+        });
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
     const itemsPerPage = 20;
 
     const { token, user, logout } = useContext(AuthContext);
@@ -417,12 +497,13 @@ function SavedListings() {
             if (data.success) {
                 setShowDemandModal(false);
                 fetchRecords(); // Update status of matched record
+                showToast('İlan talebe başarıyla eklendi.', 'success');
             } else {
-                alert(data.error);
+                showAlert('Hata', data.error || 'İşlem başarısız.');
             }
         } catch (err) {
             console.error('Failed to match demand:', err);
-            alert('Talebe ekleme başarısız oldu.');
+            showAlert('Hata', 'Talebe ekleme başarısız oldu.');
         } finally {
             setMatchingDemand(false);
         }
@@ -707,7 +788,7 @@ function SavedListings() {
         const excelData = getExcelDataPreview();
 
         if (!excelData) {
-            alert('Filtrelenmiş ilanlar arasında "Arsa" tipinde kayıt bulunamadı.');
+            showAlert('Kayıt Bulunamadı', 'Filtrelenmiş ilanlar arasında "Arsa" tipinde kayıt bulunamadı.');
             return;
         }
         if (excelData.length === 0) return;
@@ -1106,44 +1187,129 @@ function SavedListings() {
                 </div>
             )}
 
-            {lightboxImage && (
+            {galleryData && (
                 <div
-                    className="fixed inset-0 z-[60] bg-black/95 flex p-4 animate-fade-in overflow-auto custom-scrollbar"
+                    className="fixed inset-0 z-[60] bg-black/95 flex flex-col animate-fade-in overflow-hidden"
                     onClick={() => {
-                        setLightboxImage(null);
+                        setGalleryData(null);
                         setIsZoomed(false);
                     }}
                 >
-                    <div className="m-auto min-h-full min-w-full flex items-center justify-center">
-                        <img
-                            src={lightboxImage}
-                            className={`transition-all duration-300 rounded-lg shadow-2xl ${isZoomed
-                                ? 'w-[150vw] max-w-none cursor-zoom-out'
-                                : 'max-w-full max-h-[90vh] object-contain cursor-zoom-in'
-                                }`}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsZoomed(!isZoomed);
-                            }}
-                            alt="Full size"
-                        />
-                    </div>
-                    <button
-                        className="fixed top-6 right-6 text-white hover:text-gray-300 bg-black/50 hover:bg-black/80 p-2 rounded-full transition-colors z-[70]"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setLightboxImage(null);
-                            setIsZoomed(false);
-                        }}
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                    {!isZoomed && (
-                        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 text-white/70 bg-black/50 px-4 py-2 rounded-full text-sm pointer-events-none flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
-                            Yakınlaştırmak için resme tıklayın
+                    {/* Header: Counter & Close */}
+                    <div className="flex items-center justify-between p-6 z-[70] relative">
+                        <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3">
+                            <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">İlan Fotoğrafları</span>
+                            <div className="h-3 w-[1px] bg-white/10"></div>
+                            <span className="text-white font-bold text-sm">
+                                {galleryData.index + 1} / {galleryData.items.length}
+                            </span>
                         </div>
-                    )}
+                        <div className="flex gap-3">
+                            <button
+                                className={`p-3 rounded-2xl transition-all z-[70] border active:scale-95 ${isZoomed ? 'bg-blue-500 border-blue-400 text-white' : 'text-white bg-white/10 hover:bg-white/20 border-white/5'}`}
+                                onClick={handleZoomToggle}
+                                title="Yakınlaştır / Uzaklaştır"
+                            >
+                                {isZoomed ? (
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"></path></svg>
+                                ) : (
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+                                )}
+                            </button>
+                            <button
+                                className="text-white hover:text-white bg-red-500/20 hover:bg-red-500/40 p-3 rounded-2xl transition-all z-[70] border border-red-500/20 active:scale-95"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setGalleryData(null);
+                                    setIsZoomed(false);
+                                }}
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Main Image Area */}
+                    <div className="flex-1 relative flex items-center justify-center overflow-auto custom-scrollbar group/gallery">
+                        {/* Navigation Areas (Invisible but clickable on sides) */}
+                        {!isZoomed && (
+                            <>
+                                <div 
+                                    className="absolute left-0 top-0 bottom-0 w-[15%] z-20 cursor-pointer hidden md:block" 
+                                    onClick={handlePrevImage}
+                                />
+                                <div 
+                                    className="absolute right-0 top-0 bottom-0 w-[15%] z-20 cursor-pointer hidden md:block" 
+                                    onClick={handleNextImage}
+                                />
+                            </>
+                        )}
+
+                        {/* Arrows */}
+                        {!isZoomed && galleryData.items.length > 1 && (
+                            <>
+                                <button
+                                    className="absolute left-8 z-30 p-4 rounded-3xl bg-white/5 hover:bg-white/10 text-white border border-white/10 backdrop-blur-xl transition-all duration-300 opacity-0 group-hover/gallery:opacity-100 -translate-x-4 group-hover/gallery:translate-x-0 hidden md:block"
+                                    onClick={handlePrevImage}
+                                >
+                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+                                </button>
+                                <button
+                                    className="absolute right-8 z-30 p-4 rounded-3xl bg-white/5 hover:bg-white/10 text-white border border-white/10 backdrop-blur-xl transition-all duration-300 opacity-0 group-hover/gallery:opacity-100 translate-x-4 group-hover/gallery:translate-x-0 hidden md:block"
+                                    onClick={handleNextImage}
+                                >
+                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                                </button>
+                            </>
+                        )}
+
+                        <div 
+                            className={`m-auto ${!isDragging ? 'transition-transform duration-300' : ''} ${isZoomed ? 'cursor-grab active:cursor-grabbing' : 'max-h-full max-w-full'}`}
+                            style={isZoomed ? { transform: `translate(${zoomPos.x}px, ${zoomPos.y}px)` } : {}}
+                            onMouseDown={handleMouseDown}
+                            onMouseMove={handleMouseMove}
+                            onMouseUp={handleMouseUp}
+                            onMouseLeave={handleMouseUp}
+                        >
+                            <img
+                                src={galleryData.items[galleryData.index]}
+                                className={`transition-all duration-500 rounded-2xl shadow-[0_0_100px_rgba(0,0,0,0.5)] select-none ${isZoomed
+                                    ? 'scale-[2.5] cursor-grab active:cursor-grabbing'
+                                    : 'max-h-[75vh] max-w-full object-contain cursor-zoom-in'
+                                    }`}
+                                onClick={handleZoomToggle}
+                                alt={`Gallery ${galleryData.index}`}
+                                draggable="false"
+                            />
+                        </div>
+                    </div>
+
+                    <div 
+                        className="bg-black/60 backdrop-blur-3xl border-t border-white/5 p-6 z-[70] animate-in slide-in-from-bottom-5 duration-500"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div 
+                            ref={thumbScrollRef}
+                            className="flex gap-3 overflow-x-auto pb-2 px-1 no-scrollbar group/thumbs scroll-smooth"
+                        >
+                            {galleryData.items.map((img, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`flex-none w-20 h-14 md:w-24 md:h-16 rounded-xl border-2 transition-all duration-300 cursor-pointer overflow-hidden ${
+                                        galleryData.index === idx 
+                                        ? 'border-blue-500 scale-110 shadow-[0_0_20px_rgba(59,130,246,0.4)]' 
+                                        : 'border-transparent opacity-40 hover:opacity-100 hover:scale-105'
+                                    }`}
+                                    onClick={() => {
+                                        setGalleryData({ ...galleryData, index: idx });
+                                        setIsZoomed(false);
+                                    }}
+                                >
+                                    <img src={img} className="w-full h-full object-cover" loading="lazy" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -1178,6 +1344,14 @@ function SavedListings() {
                         >
                             <svg className="w-5 h-5 flex-shrink-0 min-w-[20px] transition-transform duration-700 ease-in-out group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                             <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[100px] group-hover:ml-2 transition-all duration-700 ease-in-out whitespace-nowrap overflow-hidden text-sm">İndir</span>
+                        </button>
+                        <button
+                            onClick={() => setShowManualModal(true)}
+                            title="Manuel İlan Ekle"
+                            className="group bg-indigo-600 hover:bg-indigo-700 text-white font-semibold p-2 md:p-2.5 rounded-xl shadow-sm transition-all duration-700 ease-in-out flex items-center justify-center overflow-hidden max-w-[40px] md:max-w-[44px] hover:max-w-[200px]"
+                        >
+                            <svg className="w-5 h-5 flex-shrink-0 min-w-[20px] transition-transform duration-700 ease-in-out group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[150px] group-hover:ml-2 transition-all duration-700 ease-in-out whitespace-nowrap overflow-hidden text-sm">Manuel İlan Ekle</span>
                         </button>
                     </div>
                 </div>
@@ -1727,7 +1901,7 @@ function SavedListings() {
                                                                                 <div
                                                                                     key={idx}
                                                                                     className="flex-none w-64 h-48 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden cursor-zoom-in snap-center hover:shadow-md transition-shadow relative group/img"
-                                                                                    onClick={() => setLightboxImage(img)}
+                                                                                    onClick={() => setGalleryData({ items: record.images, index: idx })}
                                                                                 >
                                                                                     <img src={img} className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500" loading="lazy" />
                                                                                     <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors pointer-events-none" />
@@ -2037,6 +2211,12 @@ function SavedListings() {
                 </div>
             )}
 
+            <ManualListingModal 
+                isOpen={showManualModal} 
+                onClose={() => setShowManualModal(false)} 
+                token={token}
+                onRefresh={fetchRecords}
+            />
         </div>
     );
 }
