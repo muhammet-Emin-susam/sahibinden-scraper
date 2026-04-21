@@ -7,9 +7,9 @@ import { API_BASE_URL } from '../config';
 const EfdalAILink = ({ location, isExpanded }) => {
     const active = location.pathname === '/efdal-ai';
     return (
-        <Link 
-            to="/efdal-ai" 
-            className={`group relative flex items-center transition-all ${isExpanded ? 'py-2.5 px-4 gap-3 rounded-xl' : 'w-11 h-11 mx-auto justify-center rounded-[14px]'} ${active ? 'bg-purple-50 text-purple-600 font-bold shadow-sm' : 'text-gray-600 hover:bg-purple-50 hover:text-purple-600 font-medium'}`} 
+        <Link
+            to="/efdal-ai"
+            className={`group relative flex items-center transition-all ${isExpanded ? 'py-2.5 px-4 gap-3 rounded-xl' : 'w-11 h-11 mx-auto justify-center rounded-[14px]'} ${active ? 'bg-purple-50 text-purple-600 font-bold shadow-sm' : 'text-gray-600 hover:bg-purple-50 hover:text-purple-600 font-medium'}`}
             title={!isExpanded ? "EfdalAI Akıllı Asistan" : undefined}
         >
             <svg className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${!isExpanded && 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,7 +94,7 @@ const Layout = ({ children }) => {
     const renderMenuItem = (to, iconPath, label, badgeCount = 0) => {
         const active = location.pathname === to;
         return (
-            <Link key={to} to={to} className={`group relative flex items-center transition-all ${isSidebarExpanded ? 'py-2.5 px-4 gap-3 rounded-xl' : 'w-11 h-11 mx-auto justify-center rounded-[14px]'} ${active ? 'bg-blue-50 text-blue-600 font-bold shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 font-medium'}`} title={!isSidebarExpanded ? label : undefined}>
+            <Link key={to} to={to} className={`group relative flex items-center transition-all ${isSidebarExpanded ? 'py-2.5 px-4 gap-3 rounded-xl' : 'w-11 h-11 mx-auto justify-center rounded-[14px]'} ${active ? 'bg-blue-50 text-blue-600 font-semibold shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 font-medium'}`} title={!isSidebarExpanded ? label : undefined}>
                 <svg className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${!isSidebarExpanded && 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={iconPath}></path>
                 </svg>
@@ -174,12 +174,12 @@ const Layout = ({ children }) => {
                 // Show toast for the latest if it's new AND not already toasted AND not on announcements page
                 const toastedKey = `efdal_toasted_ann_${user.id}`;
                 const lastToastedId = localStorage.getItem(toastedKey);
-                
-                if (newOnes.length > 0 && 
-                    newOnes[0].id === latest.id && 
-                    lastToastedId !== latest.id && 
+
+                if (newOnes.length > 0 &&
+                    newOnes[0].id === latest.id &&
+                    lastToastedId !== latest.id &&
                     location.pathname !== '/sayfalar/duyurular') {
-                    
+
                     localStorage.setItem(toastedKey, latest.id);
                     setNotification(latest);
                     playNotificationSound();
@@ -223,7 +223,7 @@ const Layout = ({ children }) => {
 
     return (
         <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-gray-50 p-0 md:p-4 gap-0 md:gap-4 box-border relative">
-            
+
             {/* Mobile Header (Only visible on small screens) */}
             <header className="md:hidden flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 z-50 flex-shrink-0">
                 <div className="flex items-center gap-2">
@@ -232,7 +232,7 @@ const Layout = ({ children }) => {
                     </div>
                     <span className="text-lg font-black tracking-tight text-gray-900">İlan<span className="text-blue-600">Yönetimi</span></span>
                 </div>
-                <button 
+                <button
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     className="p-2 -mr-2 text-gray-500 hover:text-blue-600 transition-colors"
                 >
@@ -248,7 +248,7 @@ const Layout = ({ children }) => {
 
             {/* Mobile Sidebar Backdrop */}
             {isMobileMenuOpen && (
-                <div 
+                <div
                     className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 md:hidden transition-opacity animate-in fade-in duration-300"
                     onClick={() => setIsMobileMenuOpen(false)}
                 />
@@ -284,7 +284,7 @@ const Layout = ({ children }) => {
                     </button>
 
                     {/* Mobile Close Button (Hidden on Desktop) */}
-                    <button 
+                    <button
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="md:hidden text-gray-400 hover:text-gray-600 p-1"
                     >
@@ -299,7 +299,7 @@ const Layout = ({ children }) => {
                 </div>
 
                 <div className="p-4 flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar overflow-x-hidden">
-                    {isSidebarExpanded && <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-3 mt-2 whitespace-nowrap">Menü</div>}
+                    {isSidebarExpanded && <div className="text-[10px] font-normal text-gray-400 uppercase tracking-wider mb-2 px-3 mt-2 whitespace-nowrap">Menü</div>}
 
                     {renderMenuItem('/home', 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', 'Anasayfa')}
 

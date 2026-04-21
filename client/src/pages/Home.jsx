@@ -244,7 +244,7 @@ function Home() {
                 {/* Sol Kolon: Bugünün Randevuları */}
                 <div className="animate-fade-in-up md:pr-4" style={{ animationDelay: '200ms' }}>
                     <div className="flex items-center gap-3 mb-6">
-                        <span className="text-sm font-black tracking-widest text-indigo-900 flex items-center gap-2">
+                        <span className="text-sm font-normal tracking-widest text-indigo-900 flex items-center gap-1">
                             <span className="relative flex h-3 w-3">
                                 <span className={todayAppointments.length > 0 ? "animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" : ""}></span>
                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
@@ -289,7 +289,7 @@ function Home() {
                                 <div className="w-16 h-16 bg-gray-100/50 rounded-full flex items-center justify-center mb-4">
                                     <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z"></path></svg>
                                 </div>
-                                <p className="text-xs font-black  tracking-widest text-gray-400 mb-4">Planlı Etkileşim Yok</p>
+                                <p className="text-xs font-normal  tracking-widest text-gray-400 mb-4">Planlı Etkileşim Yok</p>
                                 <button onClick={() => navigate('/sayfalar/randevular')} className="text-[11px] font-black  text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-5 py-2.5 rounded-full transition-colors">Randevu Oluştur</button>
                             </div>
                         )}
@@ -299,7 +299,7 @@ function Home() {
                 {/* Sağ Kolon: Yaklaşan Takipler */}
                 <div className="animate-fade-in-up md:pl-4" style={{ animationDelay: '300ms' }}>
                     <div className="flex items-center gap-3 mb-6">
-                        <span className="text-sm font-black  tracking-widest text-red-900 flex items-center gap-2">
+                        <span className="text-sm font-normal  tracking-widest text-red-900 flex items-center gap-1">
                             <span className="relative flex h-3 w-3">
                                 <span className={(followUps.day2.length + followUps.day7.length + followUps.day25.length) > 0 ? "animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" : ""}></span>
                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
@@ -318,7 +318,7 @@ function Home() {
                                 <div className="w-16 h-16 bg-gray-100/50 rounded-full flex items-center justify-center mb-4">
                                     <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                                 </div>
-                                <p className="text-xs font-black  tracking-widest text-gray-400 mb-2">Tüm Takipler Güncel</p>
+                                <p className="text-xs font-normal  tracking-widest text-gray-400 mb-2">Tüm Takipler Güncel</p>
                                 <p className="text-[10px] text-gray-400 font-medium">Şu an için bekleyen arama yok.</p>
                             </div>
                         ) : (
@@ -398,11 +398,11 @@ function Home() {
             {/* Yatay Son Eklenen İlanlar (Horizontal Collection) */}
             <div className="animate-fade-in-up mt-10 p-6 bg-white/50 backdrop-blur-md rounded-[2.5rem] border border-white shadow-sm" style={{ animationDelay: '400ms' }}>
                 <div className="flex items-center justify-between mb-6 px-2">
-                    <h2 className="text-sm font-black text-gray-900 flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                         <span className="w-2 h-6 bg-indigo-500 rounded-full"></span>
                         Ağa Takılan Son İlanlar
                     </h2>
-                    <Link to="/sayfalar/kaydedilenler" className="text-[10px] font-black  tracking-widest text-indigo-500 hover:text-indigo-700 bg-indigo-50 px-4 py-2 rounded-full transition-colors flex items-center gap-2">
+                    <Link to="/sayfalar/kaydedilenler" className="text-[10px] font-normal  tracking-widest text-indigo-500 hover:text-indigo-700 bg-indigo-50 px-4 py-2 rounded-full transition-colors flex items-center gap-2">
                         Tümü <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                     </Link>
                 </div>
@@ -460,7 +460,7 @@ function Home() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 animate-fade-in">
                     {/* Backdrop */}
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeReleaseNotes}></div>
-                    
+
                     {/* Modal Content */}
                     <div className="relative bg-white/95 backdrop-blur-2xl w-full max-w-lg rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-white/40 overflow-hidden animate-in zoom-in-95 duration-500">
                         {/* Hero Section */}
@@ -516,7 +516,7 @@ function Home() {
                             {/* Past Improvements Expanded Section */}
                             <div className="pt-6 border-t border-gray-100 space-y-4">
                                 <h5 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3 ml-1">Geçmiş İyileştirmeler</h5>
-                                
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 px-1">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center gap-2">
@@ -552,7 +552,7 @@ function Home() {
                                 </div>
                             </div>
 
-                            <button 
+                            <button
                                 onClick={closeReleaseNotes}
                                 className="w-full bg-indigo-600 hover:bg-black text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-indigo-100 transition-all active:scale-98 text-base"
                             >
