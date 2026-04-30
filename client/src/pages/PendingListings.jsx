@@ -3,6 +3,9 @@ import { useNotification } from '../contexts/NotificationContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { tr } from 'date-fns/locale';
 
 
 function PendingListings() {
@@ -17,6 +20,9 @@ function PendingListings() {
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const thumbScrollRef = React.useRef(null);
 
+    const { token, user, logout } = useContext(AuthContext);
+    const navigate = useNavigate();
+
     // Approval specific states
     const [approvalNotes, setApprovalNotes] = useState({});
     const [approvalStatuses, setApprovalStatuses] = useState({});
@@ -27,8 +33,24 @@ function PendingListings() {
     const [selectedListingForDemand, setSelectedListingForDemand] = useState(null);
     const [matchingDemand, setMatchingDemand] = useState(false);
 
-    const { token, user, logout } = useContext(AuthContext);
-    const navigate = useNavigate();
+    // Advanced Filtering states
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [minPrice, setMinPrice] = useState('');
+    const [maxPrice, setMaxPrice] = useState('');
+    const [startDate, setStartDate] = useState(null);
+    const [endDate, setEndDate] = useState(null);
+    const [sortBy, setSortBy] = useState('newest_scraped');
+
+    // Filtering categories
+    const [selectedNeighborhood, setSelectedNeighborhood] = useState('Tümü');
+    const [selectedUser, setSelectedUser] = useState(user?.role === 'admin' ? '' : 'Tümü');
+    const [selectedMainCategory, setSelectedMainCategory] = useState('Tümü');
+    const [selectedSubCategory, setSelectedSubCategory] = useState('Tümü');
+
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -138,6 +160,133 @@ function PendingListings() {
         const interval = setInterval(fetchRecords, 5000);
         return () => clearInterval(interval);
     }, [token, user, navigate]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [
+        selectedNeighborhood,
+        selectedUser,
+        selectedMainCategory,
+        selectedSubCategory,
+        searchTerm,
+        minPrice,
+        maxPrice,
+        startDate,
+        endDate
+    ]);
+
+    useEffect(() => {
+        const mainContainer = document.querySelector('main > div.overflow-y-auto');
+        if (mainContainer) {
+            mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [currentPage]);
+
+    const mainCategories = ['Tümü', 'Satılık', 'Kiralık', 'Günlük Kiralık', 'Devren Satılık', 'Devren Kiralık', 'Kat Karşılığı', 'Diğer'];
+    const subCategories = ['Tümü', 'Konut', 'İş Yeri', 'Arsa', 'Tarla', 'Bahçe', 'Bağ', 'Zeytinlik', 'Bina', 'Devre Mülk', 'Turistik Tesis', 'Diğer'];
+
+    const neighborhoods = ['Tümü', ...new Set(pendingRecords.map(r => {
+        if (!r.location) return 'Diğer';
+        const parts = String(r.location).split('/');
+        return parts.length >= 3 ? parts[2].trim() : 'Diğer';
+    }))].sort();
+
+    const uniqueUsers = [...new Map(pendingRecords.map(r => [
+        r.username || 'Bilinmiyor',
+        { username: r.username || 'Bilinmiyor', displayName: String(r.displayName || r.username || 'Bilinmiyor') }
+    ])).values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+    const filteredRecords = pendingRecords.filter(r => {
+        const nMatch = selectedNeighborhood === 'Tümü' ||
+            (selectedNeighborhood === 'Diğer' && !r.location) ||
+            (r.location && String(r.location).split('/').length >= 3 && String(r.location).split('/')[2].trim() === selectedNeighborhood);
+
+        let uMatch = true;
+        if (user?.role === 'admin') {
+            if (selectedUser === '') uMatch = false;
+            else if (selectedUser !== 'Tümü') uMatch = (r.username || 'Bilinmiyor') === selectedUser;
+        } else {
+            uMatch = selectedUser === 'Tümü' || (r.username || 'Bilinmiyor') === selectedUser;
+        }
+
+        const mMatch = selectedMainCategory === 'Tümü' || r.mainCategory === selectedMainCategory;
+        const sMatch = selectedSubCategory === 'Tümü' || r.subCategory === selectedSubCategory;
+
+        let searchMatch = true;
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            const title = String(r.title || '').toLowerCase();
+            const loc = String(r.location || '').toLowerCase();
+            const ilanNo = String(r.properties?.['İlan No'] || '');
+            const sellerName = String(r.sellerName || '').toLowerCase();
+            searchMatch = title.includes(term) || loc.includes(term) || ilanNo.includes(term) || sellerName.includes(term);
+        }
+
+        let priceMatch = true;
+        if (minPrice || maxPrice) {
+            const cleanPriceStr = (pStr) => {
+                if (!pStr) return 0;
+                let numericStr = String(pStr).replace(/[^0-9]/g, '');
+                return numericStr ? parseInt(numericStr, 10) : 0;
+            };
+            const recordPrice = cleanPriceStr(r.price);
+            const minP = minPrice ? parseInt(minPrice, 10) : 0;
+            const maxP = maxPrice ? parseInt(maxPrice, 10) : Infinity;
+            if (minPrice && maxPrice) priceMatch = recordPrice >= minP && recordPrice <= maxP;
+            else if (minPrice) priceMatch = recordPrice >= minP;
+            else if (maxPrice) priceMatch = recordPrice <= maxP;
+        }
+
+        let dateMatch = true;
+        if (startDate || endDate) {
+            const recordDate = new Date(r.scrapedAt);
+            recordDate.setHours(0, 0, 0, 0);
+            let sDate = startDate ? new Date(startDate) : null;
+            if (sDate) sDate.setHours(0, 0, 0, 0);
+            let eDate = endDate ? new Date(endDate) : null;
+            if (eDate) eDate.setHours(23, 59, 59, 999);
+            if (startDate && endDate) dateMatch = recordDate >= sDate && recordDate <= eDate;
+            else if (startDate) dateMatch = recordDate >= sDate;
+            else if (endDate) dateMatch = recordDate <= eDate;
+        }
+
+        return nMatch && uMatch && mMatch && sMatch && searchMatch && priceMatch && dateMatch;
+    });
+
+    const resetFilters = () => {
+        setSelectedNeighborhood('Tümü');
+        if (user?.role !== 'admin') setSelectedUser('Tümü');
+        setSelectedMainCategory('Tümü');
+        setSelectedSubCategory('Tümü');
+        setSearchTerm('');
+        setMinPrice('');
+        setMaxPrice('');
+        setStartDate(null);
+        setEndDate(null);
+        setSortBy('newest_scraped');
+        setCurrentPage(1);
+    };
+
+    const sortedRecords = [...filteredRecords].sort((a, b) => {
+        const cleanPrice = (pStr) => {
+            if (!pStr) return 0;
+            let numericStr = String(pStr).replace(/[^0-9]/g, '');
+            return numericStr ? parseInt(numericStr, 10) : 0;
+        };
+
+        switch (sortBy) {
+            case 'newest_scraped': return new Date(b.scrapedAt) - new Date(a.scrapedAt);
+            case 'oldest_scraped': return new Date(a.scrapedAt) - new Date(b.scrapedAt);
+            case 'price_desc': return cleanPrice(b.price) - cleanPrice(a.price);
+            case 'price_asc': return cleanPrice(a.price) - cleanPrice(b.price);
+            default: return 0;
+        }
+    });
+
+    const totalPages = Math.ceil(sortedRecords.length / itemsPerPage);
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentRecords = sortedRecords.slice(indexOfFirstItem, indexOfLastItem);
 
     const handleDeleteRecord = async (e, id) => {
         e.stopPropagation();
@@ -381,9 +530,16 @@ function PendingListings() {
             <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Onay Bekleyen İlanlar ({pendingRecords.length})
+                    Onay Bekleyen İlanlar ({filteredRecords.length})
                 </h2>
                 <div className="flex gap-3">
+                    <button
+                        onClick={resetFilters}
+                        className="bg-white hover:bg-gray-50 text-red-600 font-semibold py-2 px-4 rounded-lg shadow border border-gray-200 transition-colors flex items-center gap-2"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        Filtreleri Temizle
+                    </button>
                     <button
                         onClick={fetchRecords}
                         className="bg-white hover:bg-gray-50 text-gray-600 font-semibold py-2 px-4 rounded-lg shadow border border-gray-200 transition-colors flex items-center gap-2"
@@ -392,6 +548,184 @@ function PendingListings() {
                         Yenile
                     </button>
                 </div>
+            </div>
+
+            <div className="flex flex-col gap-4 mb-6">
+                {/* Connected Category Dropdowns */}
+                <div className="flex flex-wrap items-center gap-3 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">İşlem:</label>
+                        <select
+                            value={selectedMainCategory}
+                            onChange={(e) => setSelectedMainCategory(e.target.value)}
+                            className="bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-lg focus:ring-2 focus:ring-blue-500/50 block p-2 outline-none cursor-pointer transition-all hover:bg-gray-100"
+                        >
+                            {mainCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-200 mx-1 hidden md:block"></div>
+
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Kategori:</label>
+                        <select
+                            value={selectedSubCategory}
+                            onChange={(e) => setSelectedSubCategory(e.target.value)}
+                            className="bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-lg focus:ring-2 focus:ring-blue-500/50 block p-2 outline-none cursor-pointer transition-all hover:bg-gray-100"
+                        >
+                            {subCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-200 mx-1 hidden md:block"></div>
+
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">Sıralama:</label>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-lg focus:ring-2 focus:ring-blue-500/50 block p-2 outline-none cursor-pointer transition-all hover:bg-gray-100 min-w-[160px]"
+                        >
+                            <option value="newest_scraped">En Yeni İlan</option>
+                            <option value="oldest_scraped">En Eski İlan</option>
+                            <option value="price_desc">Fiyat (Önce En Yüksek)</option>
+                            <option value="price_asc">Fiyat (Önce En Düşük)</option>
+                        </select>
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-200 mx-1 hidden md:block"></div>
+
+                    <button
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all border ${showAdvancedFilters ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        Gelişmiş Filtreler
+                        <svg className={`w-4 h-4 transform transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                </div>
+
+                {/* Advanced Filters Panel */}
+                {showAdvancedFilters && (
+                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm animate-fade-in-up">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Search Filter */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                    Arama
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="İlan Başlığı, No, Konum vb."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                                />
+                            </div>
+
+                            {/* Price Range */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Fiyat Aralığı (TL)
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        placeholder="Min"
+                                        value={minPrice}
+                                        onChange={(e) => setMinPrice(e.target.value)}
+                                        className="w-1/2 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                                    />
+                                    <span className="text-gray-400 font-bold">-</span>
+                                    <input
+                                        type="number"
+                                        placeholder="Max"
+                                        value={maxPrice}
+                                        onChange={(e) => setMaxPrice(e.target.value)}
+                                        className="w-1/2 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Date Range */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    Eklenme Tarihi
+                                </label>
+                                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:border-blue-500 transition-all">
+                                    <div className="w-1/2 relative">
+                                        <DatePicker
+                                            selected={startDate}
+                                            onChange={(date) => setStartDate(date)}
+                                            locale={tr}
+                                            dateFormat="dd.MM.yyyy"
+                                            placeholderText="Başlangıç"
+                                            className="w-full bg-transparent border-none px-3 py-2 text-sm text-gray-700 font-medium focus:outline-none cursor-pointer"
+                                            isClearable
+                                            portalId="root"
+                                            autoComplete="off"
+                                            showYearDropdown
+                                            scrollableYearDropdown
+                                        />
+                                    </div>
+                                    <div className="w-px h-6 bg-gray-300"></div>
+                                    <div className="w-1/2 relative">
+                                        <DatePicker
+                                            selected={endDate}
+                                            onChange={(date) => setEndDate(date)}
+                                            locale={tr}
+                                            dateFormat="dd.MM.yyyy"
+                                            placeholderText="Bitiş"
+                                            className="w-full bg-transparent border-none px-3 py-2 text-sm text-gray-700 font-medium focus:outline-none cursor-pointer"
+                                            isClearable
+                                            portalId="root"
+                                            autoComplete="off"
+                                            showYearDropdown
+                                            scrollableYearDropdown
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Neighborhood Filter Tabs */}
+                {neighborhoods.length > 2 && (
+                    <div className="flex items-center gap-2 max-w-full">
+                        <button
+                            onClick={() => setSelectedNeighborhood('Tümü')}
+                            className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border flex-shrink-0 z-10 ${selectedNeighborhood === 'Tümü'
+                                ? 'bg-orange-600 border-orange-500 text-white shadow-sm'
+                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                }`}
+                        >
+                            Tümü
+                        </button>
+
+                        <div className="w-px h-6 bg-gray-200 flex-shrink-0"></div>
+
+                        <div className="overflow-x-auto pb-2 -mb-2 flex-grow custom-scrollbar flex items-center">
+                            <div className="flex space-x-2">
+                                {neighborhoods.filter(n => n !== 'Tümü').map(mahalle => (
+                                    <button
+                                        key={mahalle}
+                                        onClick={() => setSelectedNeighborhood(mahalle)}
+                                        className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${selectedNeighborhood === mahalle
+                                            ? 'bg-orange-600 border-orange-500 text-white shadow-sm'
+                                            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                            }`}
+                                    >
+                                        {mahalle}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
@@ -410,7 +744,7 @@ function PendingListings() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {pendingRecords.map((record) => (
+                            {currentRecords.map((record) => (
                                 <React.Fragment key={record.id}>
                                     <tr
                                         onClick={() => toggleExpand(record.id)}
@@ -631,15 +965,62 @@ function PendingListings() {
                         </div>
                         <p className="text-gray-500 font-medium text-sm animate-pulse">Bekleyen İlanlar Yükleniyor...</p>
                     </div>
-                ) : pendingRecords.length === 0 && (
+                ) : sortedRecords.length === 0 && (
                     <div className="p-16 text-center">
                         <div className="text-gray-300 mb-4">
                             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </div>
-                        <h3 className="text-xl font-medium text-gray-900 mb-2">Harika! Onay Bekleyen İlan Yok</h3>
+                        <h3 className="text-xl font-medium text-gray-900 mb-2">İlan Bulunamadı</h3>
                         <p className="text-gray-500 max-w-md mx-auto">
-                            Tüm ilanlarınızı gözden geçirmiş görünüyorsunuz. Yeni ilanlar eklendiğinde burada listelenecektir.
+                            Seçtiğiniz filtrelere uygun onay bekleyen ilan bulunmamaktadır.
                         </p>
+                    </div>
+                )}
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                        <div className="text-sm text-gray-500">
+                            Toplam <span className="font-bold text-gray-900">{sortedRecords.length}</span> kayıttan <span className="font-bold text-gray-900">{indexOfFirstItem + 1}-{Math.min(indexOfLastItem, sortedRecords.length)}</span> arası gösteriliyor
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+                            </button>
+                            
+                            <div className="flex items-center gap-1">
+                                {[...Array(totalPages)].map((_, i) => {
+                                    const pageNum = i + 1;
+                                    // Show first, last, and pages around current
+                                    if (pageNum === 1 || pageNum === totalPages || (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`w-9 h-9 rounded-lg text-sm font-bold transition-all ${currentPage === pageNum ? 'bg-orange-600 text-white shadow-md shadow-orange-100' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                                        return <span key={pageNum} className="text-gray-400">...</span>;
+                                    }
+                                    return null;
+                                })}
+                            </div>
+
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                            </button>
+                        </div>
                     </div>
                 )}
                 {/* Demand Selection Modal */}
